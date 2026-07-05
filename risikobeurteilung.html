@@ -226,6 +226,7 @@
     <button class="btn" id="filterBtn" onclick="toggleFilterKI()">Nur KI-Entwürfe prüfen</button>
     <span class="count" id="rowCount"></span>
   </div>
+  <div id="filterBanner" style="display:none;background:var(--signal-bg);border:1px solid #EEDCB0;color:var(--signal-ink);border-radius:9px;padding:8px 12px;font-size:12.5px;margin-bottom:10px;font-weight:600"></div>
 
   <div class="tablewrap">
     <table class="ra">
@@ -515,7 +516,8 @@ function askDelete(){
 /* ============================ Render ============================ */
 function togglePanel(id){ document.getElementById(id).classList.toggle("collapsed"); }
 
-function renderAll(){ refreshMachineSelect(); renderHead(); renderTable(); renderSummaryFields(); updateSummary(); setStatus("Gespeichert · "+timeStr(M.updatedAt)); }
+function renderAll(){ filterKI=false; resetFilterBtn(); refreshMachineSelect(); renderHead(); renderTable(); renderSummaryFields(); updateSummary(); setStatus("Gespeichert · "+timeStr(M.updatedAt)); }
+function resetFilterBtn(){ const b=document.getElementById("filterBtn"); if(b){ b.classList.remove("primary"); b.textContent="Nur KI-Entwürfe prüfen"; } }
 
 function headField(key,label,type,opts,wide){
   const v=M.header[key]||"";
@@ -644,6 +646,7 @@ function renderTable(){
     tb.querySelectorAll("textarea").forEach(autoGrow);
   }
   document.getElementById("rowCount").textContent=M.rows.length+" Gefährdung"+(M.rows.length===1?"":"en");
+  updateFilterBanner();
 }
 
 /* Because the PLr got merged into the Index cell above, fix the header:
@@ -690,7 +693,23 @@ function autoGrow(el){ el.style.height="auto"; el.style.height=Math.min(el.scrol
 
 /* ============================ Row ops ============================ */
 function addRow(family){ M.rows.push(blankRow(family)); renderTable(); updateSummary(); scheduleSave(); const tb=document.getElementById("tbody"); tb.lastElementChild.scrollIntoView({behavior:"smooth",block:"center"}); }
-function toggleFilterKI(){ filterKI=!filterKI; const b=document.getElementById("filterBtn"); b.classList.toggle("primary",filterKI); b.textContent=filterKI?"Alle Zeilen zeigen":"Nur KI-Entwürfe prüfen"; renderTable(); }
+function toggleFilterKI(){
+  if(!filterKI){
+    const kiCount=M.rows.filter(r=>r.status==="ki").length;
+    if(!kiCount){ toast("Keine KI-Entwürfe vorhanden — nichts zu filtern."); return; }
+  }
+  filterKI=!filterKI;
+  const b=document.getElementById("filterBtn"); b.classList.toggle("primary",filterKI); b.textContent=filterKI?"Alle Zeilen zeigen":"Nur KI-Entwürfe prüfen";
+  renderTable();
+}
+function updateFilterBanner(){
+  const el=document.getElementById("filterBanner"); if(!el) return;
+  if(filterKI){
+    const shown=M.rows.filter(r=>r.status==="ki").length, hidden=M.rows.length-shown;
+    el.style.display="block";
+    el.innerHTML=`Filter aktiv · nur KI-Entwürfe: ${shown} sichtbar, ${hidden} ausgeblendet. <a href="#" onclick="toggleFilterKI();return false" style="color:inherit;text-decoration:underline">Alle Zeilen zeigen</a>`;
+  } else el.style.display="none";
+}
 function delRow(id){ M.rows=M.rows.filter(r=>r.id!==id); renderTable(); updateSummary(); scheduleSave(); }
 function dupRow(id){ const i=M.rows.findIndex(r=>r.id===id); if(i<0) return; const c=JSON.parse(JSON.stringify(M.rows[i])); c.id=uid(); M.rows.splice(i+1,0,c); renderTable(); updateSummary(); scheduleSave(); }
 function moveRow(id,dir){ const i=M.rows.findIndex(r=>r.id===id); const j=i+dir; if(i<0||j<0||j>=M.rows.length) return; const t=M.rows[i]; M.rows[i]=M.rows[j]; M.rows[j]=t; renderTable(); scheduleSave(); }
