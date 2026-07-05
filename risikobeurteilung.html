@@ -564,6 +564,7 @@ function refreshStatus(tr,r){
 }
 
 
+function optHtml(opts,val){ return opts.map(o=>`<option value="${o[0]}" ${String(o[0])===String(val)?"selected":""}>${o[1]}</option>`).join(""); }
 function selCell(field,opts,val,cls){ return `<select data-field="${field}" class="${cls||""}"><option value="">—</option>${optHtml(opts,val)}</select>`; }
 function areaCell(field,val){ return `<textarea data-field="${field}" rows="1">${escapeHtml(val||"")}</textarea>`; }
 
