@@ -33,14 +33,24 @@ Der Übergabe- und Import-Datensatz ist ein JSON-Objekt. Das ist zugleich der Ve
       "m1": "", "m2": "", "m3": "",
       "S2": null, "E2": null, "W2": null, "V2": null,
       "idxAfterOverride": "",
-      "residual": "", "residualWhy": "", "norms": "", "verify": ""
+      "residual": "", "residualWhy": "", "norms": "", "verify": "",
+      "status": "", "confidence": "", "derivation": "",
+      "designReq": "", "designAspects": ""
     }
   ],
   "summary": { "residualSummary": "", "openPoints": "" }
 }
 ```
 
-Fehlende Felder je Zeile werden beim Import mit Standardwerten aufgefüllt. `S/E/W/V` sind ganze Zahlen oder `null`. `residual` nimmt `akzeptabel`, `bedingt` oder `nicht`.
+Fehlende Felder je Zeile werden beim Import mit Standardwerten aufgefüllt. `S/E/W/V` sind ganze Zahlen oder `null`. `residual` nimmt `akzeptabel`, `bedingt` oder `nicht`. `status` nimmt `""` (offen), `ki` (KI-Entwurf), `geprueft` oder `verworfen`. `designReq` nimmt `"ja"` oder `""`.
+
+## KI-Vorbelegung & Freigabe
+
+Der Katalog erzeugt nur das Gerüst. Die Zeilen lassen sich per KI vorbelegen, sodass der Experte den Entwurf nur noch bewertet statt ihn zu schreiben. Die Spezifikation dafür steht in `KI-Vorbelegung-n8n.md`.
+
+Dabei gilt eine zweigeteilte Feldlogik. Aus dem Katalog ableitbare Felder (Gefährdungssituation, auslösendes Ereignis, Schaden, Maßnahmen, Normbezüge, ein erster S/E-Entwurf) werden gefüllt. Design-abhängige Werte (konkrete Abstände, Restenergie, Wirksamkeit, PL/SIL und oft W und V) werden nicht erfunden, sondern über `designReq: "ja"` und `designAspects` als offen ausgewiesen.
+
+Im Tool trägt jede Zeile einen Status (offen, KI-Entwurf, geprüft, verworfen), einen Konfidenzwert und die Herleitung der KI. Der Filter „Nur KI-Entwürfe prüfen" blendet die noch offenen Entwürfe ein. Die Zusammenfassung zeigt, wie viele Entwürfe offen und geprüft sind, wie viele auf Design-Daten warten, und die Acceptance Rate, also den Anteil der KI-Zeilen, die der Experte unverändert übernommen hat. Diese Kennzahl ist der Qualitätsnachweis der Vorbelegung.
 
 ## Bewertungsschlüssel
 

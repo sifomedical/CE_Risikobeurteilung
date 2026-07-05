@@ -123,6 +123,21 @@
 
   .emptyrow td{padding:26px;text-align:center;color:var(--mute);font-size:13px}
 
+  /* KI review */
+  .kstat{display:inline-block;margin-top:5px;font-size:9.5px;font-weight:700;letter-spacing:.02em;border-radius:5px;padding:2px 6px;border:1px solid transparent;white-space:nowrap}
+  .kstat.k-offen{color:var(--mute);background:#F1F2EF;border-color:#E2E4E0}
+  .kstat.k-ki{color:var(--signal-ink);background:var(--signal-bg);border-color:#EEDCB0}
+  .kstat.k-ok{color:var(--r-low);background:var(--r-low-bg);border-color:#CFE6D8}
+  .kstat.k-no{color:var(--r-crit);background:var(--r-crit-bg);border-color:#EEC7C3}
+  td.kstatus{min-width:120px}
+  td.kstatus select.kselect{font-weight:600}
+  .designwarn{margin-top:5px;font-size:10px;font-weight:700;color:var(--r-high);background:var(--r-high-bg);border:1px solid #EFD2BB;border-radius:5px;padding:2px 6px;display:inline-block}
+  .confin{text-align:center;font-family:var(--mono);font-size:11.5px}
+  .stat.kcard-ki{background:var(--signal-bg);border-color:#EEDCB0} .stat.kcard-ki .n{color:var(--signal-ink)}
+  .stat.kcard-ok{background:var(--r-low-bg);border-color:#CFE6D8} .stat.kcard-ok .n{color:var(--r-low)}
+  .stat.kcard-warn{background:var(--r-high-bg);border-color:#EFD2BB} .stat.kcard-warn .n{color:var(--r-high)}
+  .stat.kcard-acc{background:#101418;border-color:#101418} .stat.kcard-acc .n{color:#fff} .stat.kcard-acc .l{color:#9AA3AD}
+
   /* summary */
   .sumgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
   @media(max-width:720px){.sumgrid{grid-template-columns:repeat(2,1fr)}}
@@ -208,6 +223,7 @@
     <select class="addfam" id="famQuick" onchange="if(this.value){addRow(this.value);this.value=''}">
       <option value="">Schnell nach Familie…</option>
     </select>
+    <button class="btn" id="filterBtn" onclick="toggleFilterKI()">Nur KI-Entwürfe prüfen</button>
     <span class="count" id="rowCount"></span>
   </div>
 
@@ -222,6 +238,7 @@
           <th colspan="5">Risiko nach Maßnahmen</th>
           <th colspan="2">Bewertung</th>
           <th colspan="2">Nachweis</th>
+          <th colspan="3">KI-Freigabe</th>
         </tr>
         <tr class="cols">
           <th>Lebensphase</th><th>Gefährdungsfamilie</th><th>Konkrete Gefährdung</th>
@@ -231,6 +248,7 @@
           <th>S</th><th>E</th><th>W</th><th>V</th><th>Index</th>
           <th>Restrisiko</th><th>Begründung</th>
           <th>Normbezüge</th><th>Prüfhinweise</th>
+          <th>Status</th><th>Konfidenz</th><th>Herleitung (KI)</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -385,7 +403,7 @@ async function sDel(k){ return STORE.del(k); }
 function readHandoff(){ try{ const raw=window.localStorage.getItem(HANDOFF_KEY); if(raw){ window.localStorage.removeItem(HANDOFF_KEY); return JSON.parse(raw); } }catch(e){} return null; }
 
 /* ============================ State ============================ */
-let INDEX=[]; let M=null; let activeId=null; let saveTimer=null;
+let INDEX=[]; let M=null; let activeId=null; let saveTimer=null; let filterKI=false;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
 function blankRow(family){
@@ -393,7 +411,8 @@ function blankRow(family){
     S:null,E:null,W:null,V:null,idxBeforeOverride:"",plrOverride:"",
     m1:"",m2:"",m3:"",
     S2:null,E2:null,W2:null,V2:null,idxAfterOverride:"",
-    residual:"",residualWhy:"",norms:"",verify:""};
+    residual:"",residualWhy:"",norms:"",verify:"",
+    status:"",confidence:"",derivation:"",designReq:"",designAspects:"",_ai:null};
 }
 function blankMachine(id,name){
   return {id,name:name||"Neue Maschine",createdAt:Date.now(),updatedAt:Date.now(),
@@ -439,7 +458,11 @@ async function importMachineObject(obj){
   const id=uid();
   const nm=blankMachine(id,(obj.header&&obj.header.machineName)||obj.name||"Importiert");
   if(obj.header) Object.assign(nm.header,obj.header);
-  if(Array.isArray(obj.rows)) nm.rows=obj.rows.map(r=>Object.assign(blankRow(),r,{id:uid()}));
+  if(Array.isArray(obj.rows)) nm.rows=obj.rows.map(r=>{
+    const row=Object.assign(blankRow(),r,{id:uid()});
+    if(row.status==="ki" && !row._ai) row._ai=snapshot(row);
+    return row;
+  });
   if(obj.summary) Object.assign(nm.summary,obj.summary);
   nm.name=nm.header.machineName||"Importiert";
   M=nm; activeId=id; INDEX.unshift({id,name:nm.name,updatedAt:nm.updatedAt});
@@ -524,7 +547,23 @@ function renderHead(){
   });
 }
 
-function optHtml(opts,val){ return opts.map(o=>`<option value="${o[0]}" ${String(o[0])===String(val)?"selected":""}>${o[1]}</option>`).join(""); }
+/* ============================ KI-Freigabe ============================ */
+const STATUS_OPT=[["","offen"],["ki","KI-Entwurf"],["geprueft","geprüft"],["verworfen","verworfen"]];
+const STATUS_META={"":{cls:"k-offen",lab:"offen"},ki:{cls:"k-ki",lab:"KI-Entwurf"},geprueft:{cls:"k-ok",lab:"geprüft"},verworfen:{cls:"k-no",lab:"verworfen"}};
+const SNAP_FIELDS=["situation","event","harm","persons","S","E","W","V","idxBeforeOverride","plrOverride","m1","m2","m3","S2","E2","W2","V2","idxAfterOverride","residual","residualWhy","norms","verify"];
+function snapshot(r){ const o={}; SNAP_FIELDS.forEach(f=>o[f]=r[f]); return o; }
+function isAccepted(r){ if(!r._ai) return null; return SNAP_FIELDS.every(f=>String(r[f]==null?"":r[f])===String(r._ai[f]==null?"":r._ai[f])); }
+function statusMeta(s){ return STATUS_META[s||""]||STATUS_META[""]; }
+function pillHtml(r){ const m=statusMeta(r.status); const conf=(r.status==="ki"&&r.confidence!=="")?` · ${r.confidence}%`:""; return `<div class="kstat ${m.cls}" data-cell="kstat">${m.lab}${conf}</div>`; }
+function statusCellHtml(r){
+  const warn = r.designReq==="ja" ? `<div class="designwarn" data-cell="warn" title="Design-Daten (Zeichnung/Stückliste/Schaltplan) erforderlich">⚠ Design nötig</div>`:`<span data-cell="warn"></span>`;
+  return `<select data-field="status" class="kselect">${STATUS_OPT.map(o=>`<option value="${o[0]}" ${o[0]===(r.status||"")?"selected":""}>${o[1]}</option>`).join("")}</select>${warn}`;
+}
+function refreshStatus(tr,r){
+  const p=tr.querySelector('[data-cell="kstat"]'); if(p){ const m=statusMeta(r.status); const conf=(r.status==="ki"&&r.confidence!=="")?` · ${r.confidence}%`:""; p.className="kstat "+m.cls; p.textContent=m.lab+conf; }
+}
+
+
 function selCell(field,opts,val,cls){ return `<select data-field="${field}" class="${cls||""}"><option value="">—</option>${optHtml(opts,val)}</select>`; }
 function areaCell(field,val){ return `<textarea data-field="${field}" rows="1">${escapeHtml(val||"")}</textarea>`; }
 
@@ -552,6 +591,7 @@ function rowHtml(r,i){
   return `<tr data-id="${r.id}">
     <td class="colnum">
       <div class="rn">${i+1}</div>
+      ${pillHtml(r)}
       <div class="rowmenu">
         <button title="Detail" onclick="openDetail('${r.id}')">⤢</button>
         <button title="Duplizieren" onclick="dupRow('${r.id}')">⧉</button>
@@ -585,15 +625,21 @@ function rowHtml(r,i){
     <td class="txt sm">${areaCell("residualWhy",r.residualWhy)}</td>
     <td class="txt sm">${areaCell("norms",r.norms)}</td>
     <td class="txt sm">${areaCell("verify",r.verify)}</td>
+    <td class="kstatus">${statusCellHtml(r)}</td>
+    <td class="param" style="min-width:64px"><input data-field="confidence" class="confin" value="${escapeHtml(r.confidence)}" placeholder="%"></td>
+    <td class="txt sm">${areaCell("derivation",r.derivation)}</td>
   </tr>`;
 }
 /* NOTE: PLr header spans its own column; move PLr into its own cell */
 function renderTable(){
   const tb=document.getElementById("tbody");
+  const list = filterKI ? M.rows.filter(r=>r.status==="ki") : M.rows;
   if(!M.rows.length){
-    tb.innerHTML=`<tr class="emptyrow"><td colspan="26">Noch keine Gefährdungen erfasst. Füge oben eine Gefährdung hinzu oder importiere JSON aus deinem Workflow.</td></tr>`;
+    tb.innerHTML=`<tr class="emptyrow"><td colspan="29">Noch keine Gefährdungen erfasst. Füge oben eine Gefährdung hinzu oder importiere JSON aus deinem Workflow.</td></tr>`;
+  } else if(!list.length){
+    tb.innerHTML=`<tr class="emptyrow"><td colspan="29">Keine offenen KI-Entwürfe. Filter deaktivieren, um alle Zeilen zu sehen.</td></tr>`;
   } else {
-    tb.innerHTML=M.rows.map((r,i)=>rowHtml(r,i)).join("");
+    tb.innerHTML=list.map(r=>rowHtml(r,M.rows.indexOf(r))).join("");
     tb.querySelectorAll("textarea").forEach(autoGrow);
   }
   document.getElementById("rowCount").textContent=M.rows.length+" Gefährdung"+(M.rows.length===1?"":"en");
@@ -616,7 +662,8 @@ function onCell(e){
   if(["S","E","W","V","idxBeforeOverride","plrOverride"].includes(f)) refreshBefore(tr,r);
   if(["S2","E2","W2","V2","idxAfterOverride"].includes(f)) refreshAfter(tr,r);
   if(f==="residual") refreshResidualDot(tr,r);
-  if(["S","E","W","V","S2","E2","W2","V2","idxBeforeOverride","idxAfterOverride","residual"].includes(f)) updateSummary();
+  if(f==="status"||f==="confidence") refreshStatus(tr,r);
+  updateSummary();
   scheduleSave();
 }
 function refreshBefore(tr,r){
@@ -642,6 +689,7 @@ function autoGrow(el){ el.style.height="auto"; el.style.height=Math.min(el.scrol
 
 /* ============================ Row ops ============================ */
 function addRow(family){ M.rows.push(blankRow(family)); renderTable(); updateSummary(); scheduleSave(); const tb=document.getElementById("tbody"); tb.lastElementChild.scrollIntoView({behavior:"smooth",block:"center"}); }
+function toggleFilterKI(){ filterKI=!filterKI; const b=document.getElementById("filterBtn"); b.classList.toggle("primary",filterKI); b.textContent=filterKI?"Alle Zeilen zeigen":"Nur KI-Entwürfe prüfen"; renderTable(); }
 function delRow(id){ M.rows=M.rows.filter(r=>r.id!==id); renderTable(); updateSummary(); scheduleSave(); }
 function dupRow(id){ const i=M.rows.findIndex(r=>r.id===id); if(i<0) return; const c=JSON.parse(JSON.stringify(M.rows[i])); c.id=uid(); M.rows.splice(i+1,0,c); renderTable(); updateSummary(); scheduleSave(); }
 function moveRow(id,dir){ const i=M.rows.findIndex(r=>r.id===id); const j=i+dir; if(i<0||j<0||j>=M.rows.length) return; const t=M.rows[i]; M.rows[i]=M.rows[j]; M.rows[j]=t; renderTable(); scheduleSave(); }
@@ -693,7 +741,15 @@ function openDetail(id){
     <div class="fgroup"><h4>Nachweis</h4><div class="grid">
       ${dField(r,"norms","Normbezüge","area")}
       ${dField(r,"verify","Prüfhinweise / Verifikation","area")}
-    </div></div>`;
+    </div></div>
+    <div class="fgroup" style="border-color:var(--signal);background:var(--signal-bg)"><h4>KI-Vorbelegung &amp; Freigabe</h4><div class="grid">
+      ${dField(r,"status","Status","select",STATUS_OPT.filter(o=>o[0]!==""))}
+      ${dField(r,"confidence","Konfidenz (0–100 %)","text")}
+      ${dField(r,"designReq","Design-Daten erforderlich?","select",[["","nein"],["ja","ja — Zeichnung/Stückliste/Schaltplan nötig"]])}
+      ${dField(r,"designAspects","Welche Design-Aspekte offen (Abstände, Restenergie, PL/SIL …)","area")}
+      ${dField(r,"derivation","Herleitung / Begründung der KI","area")}
+    </div>
+    <div style="font-size:11.5px;color:var(--signal-ink);margin-top:8px">Freigabe heißt: Status auf „geprüft" setzen, nachdem die Herleitung fachlich bestätigt ist. Zeilen mit „Design-Daten erforderlich" dürfen nicht ungeprüft freigegeben werden.</div></div>`;
   document.getElementById("detailBody").querySelectorAll("[data-df]").forEach(el=>{
     const ev=el.tagName==="SELECT"?"change":"input";
     el.addEventListener(ev,()=>{ let f=el.dataset.df,v=el.value; if(["S","E","W","V","S2","E2","W2","V2"].includes(f)) v=(v===""?null:parseInt(v,10)); r[f]=v; scheduleSave(); });
@@ -712,13 +768,26 @@ function renderSummaryFields(){
 }
 function updateSummary(){
   let low=0,mid=0,high=0,crit=0,notOk=0;
-  M.rows.forEach(r=>{ const c=riskClass(effIndexAfter(r)); if(c.key==="low")low++;else if(c.key==="mid")mid++;else if(c.key==="high")high++;else if(c.key==="crit")crit++; if(r.residual==="nicht")notOk++; });
+  let ki=0,ok=0,rej=0,designOpen=0,acc=0,accBase=0;
+  M.rows.forEach(r=>{
+    const c=riskClass(effIndexAfter(r));
+    if(c.key==="low")low++;else if(c.key==="mid")mid++;else if(c.key==="high")high++;else if(c.key==="crit")crit++;
+    if(r.residual==="nicht")notOk++;
+    if(r.status==="ki")ki++; else if(r.status==="geprueft")ok++; else if(r.status==="verworfen")rej++;
+    if(r.designReq==="ja" && r.status!=="geprueft")designOpen++;
+    if(r.status==="geprueft" && r._ai){ accBase++; if(isAccepted(r))acc++; }
+  });
+  const accRate = accBase? Math.round(acc/accBase*100)+" %" : "—";
   const g=document.getElementById("sumGrid");
   g.innerHTML=`
     <div class="stat low"><div class="n">${low}</div><div class="l">Restrisiko gering</div></div>
     <div class="stat mid"><div class="n">${mid}</div><div class="l">Restrisiko mittel</div></div>
     <div class="stat high"><div class="n">${high}</div><div class="l">Restrisiko hoch</div></div>
-    <div class="stat crit"><div class="n">${crit+notOk?crit:0}</div><div class="l">sehr hoch · ${notOk} nicht akzeptabel</div></div>`;
+    <div class="stat crit"><div class="n">${crit}</div><div class="l">sehr hoch · ${notOk} nicht akzeptabel</div></div>
+    <div class="stat kcard-ki"><div class="n">${ki}</div><div class="l">KI-Entwurf offen</div></div>
+    <div class="stat kcard-ok"><div class="n">${ok}</div><div class="l">geprüft &amp; freigegeben</div></div>
+    <div class="stat kcard-warn"><div class="n">${designOpen}</div><div class="l">Design-Daten offen</div></div>
+    <div class="stat kcard-acc"><div class="n">${accRate}</div><div class="l">Acceptance Rate (unverändert übernommen)</div></div>`;
   document.getElementById("rowCount").textContent=M.rows.length+" Gefährdung"+(M.rows.length===1?"":"en");
 }
 
@@ -744,15 +813,19 @@ function exportCSV(){
     "S","E","W","V","Index vorher","Risikoklasse vorher","PLr/SIL",
     "Maßnahme 1 Konstruktion","Maßnahme 2 Technisch","Maßnahme 3 Information",
     "S nach","E nach","W nach","V nach","Index nachher","Risikoklasse nachher",
-    "Restrisiko","Begründung Restrisiko","Normbezüge","Prüfhinweise"]));
+    "Restrisiko","Begründung Restrisiko","Normbezüge","Prüfhinweise",
+    "Status","Konfidenz %","Herleitung (KI)","Design-Daten nötig","Design-Aspekte offen","KI unverändert übernommen"]));
   M.rows.forEach((r,i)=>{
     const ib=effIndexBefore(r), ia=effIndexAfter(r);
     const resMap={akzeptabel:"akzeptabel",bedingt:"bedingt akzeptabel",nicht:"nicht akzeptabel"};
+    const accMap={true:"ja",false:"korrigiert"};
+    const accV=isAccepted(r); 
     rows.push(line([i+1,r.lifecycle,r.family,r.hazard,r.situation,r.event,r.harm,r.persons,
       r.S||"",r.E||"",r.W||"",r.V||"",ib==null?"":ib,riskClass(ib).label,effPLr(r),
       r.m1,r.m2,r.m3,
       r.S2||"",r.E2||"",r.W2||"",r.V2||"",ia==null?"":ia,riskClass(ia).label,
-      resMap[r.residual]||"",r.residualWhy,r.norms,r.verify]));
+      resMap[r.residual]||"",r.residualWhy,r.norms,r.verify,
+      statusMeta(r.status).lab,r.confidence,r.derivation,r.designReq==="ja"?"ja":"",r.designAspects,accV==null?"":accMap[accV]]));
   });
   rows.push("");
   rows.push(line(["Restrisiko-Zusammenfassung",M.summary.residualSummary||""]));
@@ -782,8 +855,10 @@ function openPrint(){
     const resMap={akzeptabel:["akzeptabel","#2F7A56"],bedingt:["bedingt akzept.","#9A6B10"],nicht:["nicht akzept.","#A82E27"]};
     const res=resMap[r.residual]||["—","#9AA3AD"];
     const meas=[r.m1&&("① "+r.m1),r.m2&&("② "+r.m2),r.m3&&("③ "+r.m3)].filter(Boolean).join("<br>");
+    const stCol={"":"#9AA3AD",ki:"#7A5410",geprueft:"#2F7A56",verworfen:"#A82E27"}[r.status||""];
+    const stTag=`<div class="stag" style="color:${stCol}">${statusMeta(r.status).lab}</div>`+(r.designReq==="ja"?`<div class="stag" style="color:#B4551C">⚠ Design</div>`:"");
     return `<tr>
-      <td class="c">${i+1}</td>
+      <td class="c">${i+1}${stTag}</td>
       <td>${esc(r.lifecycle)}<div class="fam">${esc(r.family)}</div></td>
       <td><b>${esc(r.hazard)}</b><div class="mut">${esc(r.situation)}</div></td>
       <td>${esc(r.event)}</td>
@@ -795,6 +870,9 @@ function openPrint(){
       <td>${esc(r.norms)}<div class="mut">${esc(r.verify)}</div></td>
     </tr>`;
   }).join("");
+  let _ki=0,_ok=0,_dz=0,_ab=0,_ac=0;
+  M.rows.forEach(r=>{ if(r.status==="ki")_ki++; else if(r.status==="geprueft")_ok++; if(r.designReq==="ja"&&r.status!=="geprueft")_dz++; if(r.status==="geprueft"&&r._ai){_ab++; if(isAccepted(r))_ac++;} });
+  const _acc=_ab?Math.round(_ac/_ab*100)+" %":"—";
   const root=document.getElementById("printRoot");
   root.innerHTML=`
   <style>
@@ -814,6 +892,7 @@ function openPrint(){
     #printRoot .fam{color:#5B646C;font-size:7.6px}
     #printRoot .mut{color:#5B646C;font-size:7.6px;margin-top:2px}
     #printRoot .pill{border:1px solid;border-radius:4px;padding:1px 5px;font-weight:700;white-space:nowrap;font-size:8px}
+    #printRoot .stag{font-size:7px;font-weight:700;margin-top:2px}
     #printRoot .sum{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
     #printRoot .sum .box{border:1px solid #D9DBD6;border-radius:6px;padding:8px}
     #printRoot .sum h4{margin:0 0 4px;font-size:9px}
@@ -836,6 +915,13 @@ function openPrint(){
     <div><span>Bedienpersonal:</span> ${esc(h.operators)}</div>
     <div><span>Einstufung:</span> ${esc(h.classification)}</div>
     <div><span>Anhang I:</span> ${esc(h.annexI)}</div>
+  </div>
+  <div style="display:flex;gap:16px;font-size:8px;margin:0 0 8px;padding:5px 0;border-top:1px solid #E4E6E2;border-bottom:1px solid #E4E6E2">
+    <span><b>${M.rows.length}</b> Gefährdungen</span>
+    <span style="color:#7A5410"><b>${_ki}</b> KI-Entwurf offen</span>
+    <span style="color:#2F7A56"><b>${_ok}</b> geprüft &amp; freigegeben</span>
+    <span style="color:#B4551C"><b>${_dz}</b> Design-Daten offen</span>
+    <span><b>${_acc}</b> Acceptance Rate</span>
   </div>
   <table>
     <thead><tr>
