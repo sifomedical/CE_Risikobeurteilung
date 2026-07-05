@@ -195,10 +195,12 @@
     <button class="tbtn" onclick="dupMachine()">Duplizieren</button>
     <button class="tbtn warn" onclick="askDelete()">Löschen</button>
     <div class="spacer"></div>
+    <button class="tbtn go" id="kiFillBtn" onclick="runKIFill()">✦ KI-Vorbelegung</button>
+    <button class="tbtn" onclick="openKISettings()" title="KI-Einstellungen">⚙</button>
     <button class="tbtn" onclick="exportJSON()">JSON</button>
     <button class="tbtn" onclick="importJSON()">Import</button>
     <button class="tbtn" onclick="exportCSV()">CSV</button>
-    <button class="tbtn go" onclick="openPrint()">Drucken / PDF</button>
+    <button class="tbtn" onclick="openPrint()">Drucken / PDF</button>
     <div class="save" id="saveState">Bereit</div>
   </div>
 </div>
@@ -356,8 +358,35 @@
   </div>
 </div>
 
-<div id="printRoot"></div>
+<!-- KI settings modal -->
+<div class="modal confirm" id="kiModal">
+  <div class="sheet" style="max-width:520px">
+    <header><h3>KI-Vorbelegung · Einstellungen</h3><button class="x" onclick="closeModal('kiModal')">×</button></header>
+    <div class="body">
+      <div class="fld" style="margin-bottom:12px">
+        <label style="font-size:11.5px;font-weight:600;color:var(--sub)">Anthropic API-Key</label>
+        <input type="password" id="kiKey" placeholder="sk-ant-..." style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-family:var(--mono);font-size:12px">
+      </div>
+      <div class="fld" style="margin-bottom:12px">
+        <label style="font-size:11.5px;font-weight:600;color:var(--sub)">Modell</label>
+        <input type="text" id="kiModel" placeholder="claude-sonnet-5" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-family:var(--mono);font-size:12px">
+      </div>
+      <label class="opt" style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer">
+        <input type="checkbox" id="kiPersist" style="width:16px;height:16px"> Key in diesem Browser speichern
+      </label>
+      <div style="margin-top:12px;border-left:3px solid var(--signal);background:var(--signal-bg);padding:9px 11px;border-radius:0 8px 8px 0;color:var(--signal-ink);font-size:11.5px">
+        Der Key wird nur lokal in deinem Browser gehalten und direkt an Anthropic gesendet, nirgends sonst. Auf einer öffentlichen Seite nur an einem vertrauenswürdigen Rechner speichern. Für den Produktivbetrieb ist der n8n-Webhook mit serverseitigem Key sauberer.
+      </div>
+      <div id="kiErr" style="color:var(--r-crit);font-size:12px;margin-top:8px"></div>
+    </div>
+    <footer>
+      <button class="btn" onclick="clearApiKey()">Key löschen</button>
+      <button class="btn primary" onclick="saveKISettings()">Speichern</button>
+    </footer>
+  </div>
+</div>
 
+<div id="printRoot"></div>
 <script>
 /* ============================ Config ============================ */
 const LIFECYCLES=["Transport","Montage/Installation","Inbetriebnahme","Normalbetrieb","Rüsten","Reinigung","Wartung","Störungsbehebung","Demontage/Entsorgung"];
@@ -564,6 +593,102 @@ function statusCellHtml(r){
 function refreshStatus(tr,r){
   const p=tr.querySelector('[data-cell="kstat"]'); if(p){ const m=statusMeta(r.status); const conf=(r.status==="ki"&&r.confidence!=="")?` · ${r.confidence}%`:""; p.className="kstat "+m.cls; p.textContent=m.lab+conf; }
 }
+
+/* ---- KI-Vorbelegung (direkter Anthropic-Aufruf aus dem Browser) ---- */
+let sessionKey="";
+const AI_ASSIGN=["lifecycle","situation","event","harm","S","E","W","V","plrOverride","m1","m2","m3","S2","E2","W2","V2","residual","residualWhy","norms","verify","confidence","derivation","designReq","designAspects"];
+const KI_SYSTEM=`Du bist Sicherheitsingenieur für Maschinen und erstellst den ENTWURF einer Risikobeurteilung nach EN ISO 12100 im Rahmen der Verordnung (EU) 2023/1230. Du erhältst den Maschinenkontext (header) und eine Liste identifizierter Gefährdungen (rows) mit idx, family, hazard und persons.
+
+Für jede Zeile leitest du nachvollziehbar ab und füllst NUR, was aus dem Kontext seriös ableitbar ist:
+- lifecycle: passende Lebensphase, falls leer.
+- situation: konkrete Gefährdungssituation als Zusammentreffen von Person, Gefährdung und Aufgabe. Nutze header.intendedUse und header.misuse.
+- event: auslösendes Ereignis.
+- harm: möglicher Schaden, konsistent zur Gefährdungsart (Hazard -> Hazardous Situation -> Harm).
+- S (Schwere) und E (Exposition): Entwurf als ganze Zahl 1 bis 4.
+- m1, m2, m3: Maßnahmen streng in der 3-Stufen-Hierarchie. m1 inhärent sichere Konstruktion, m2 technische Schutzmaßnahmen, m3 Benutzerinformation.
+- norms: verfeinere den Normhinweis auf die einschlägige B-/C-Norm, wenn eindeutig, sonst belasse ihn und markiere zu prüfen.
+- verify: Prüf- und Verifikationshinweis.
+
+Design-abhängige Werte NICHT erfinden. Wenn ein Wert von Geometrie, Restenergie, Schutzeinrichtungs-Wirksamkeit oder realer Steuerung abhängt (typisch W, V, konkreter Sicherheitsabstand, Restenergie, PL/SIL):
+- setze designReq auf "ja",
+- benenne in designAspects die fehlenden Design-Daten,
+- setze W und V auf null,
+- nenne KEINE konkreten Millimeter-, Joule- oder PL-Werte als Tatsache.
+
+Erfinde keine Fakten und keine Normnummer, deren Einschlägigkeit du nicht begründen kannst. Bei Unsicherheit senke confidence und schreibe die Unsicherheit in derivation. confidence ist 0 bis 100.
+
+Setze S2, E2, W2, V2 und residual nur, wenn die Maßnahmen die Bewertung eindeutig tragen, sonst lass sie null bzw. leer. residual ist "akzeptabel", "bedingt", "nicht" oder "".
+
+Gib AUSSCHLIESSLICH ein JSON-Objekt {"rows":[ ... ]} zurück. Jede Zeile trägt ihr unverändertes idx und die angereicherten Felder. Kein Text außerhalb des JSON, keine Markdown-Zäune.`;
+
+function getApiKey(){ try{ return sessionKey || window.localStorage.getItem("sifo_ra_apikey") || ""; }catch(e){ return sessionKey||""; } }
+function getModel(){ try{ return window.localStorage.getItem("sifo_ra_model") || "claude-sonnet-5"; }catch(e){ return "claude-sonnet-5"; } }
+function openKISettings(){
+  document.getElementById("kiKey").value=getApiKey();
+  document.getElementById("kiModel").value=getModel();
+  let persisted=false; try{ persisted=!!window.localStorage.getItem("sifo_ra_apikey"); }catch(e){}
+  document.getElementById("kiPersist").checked=persisted;
+  document.getElementById("kiErr").textContent="";
+  document.getElementById("kiModal").classList.add("on");
+}
+function saveKISettings(){
+  const key=document.getElementById("kiKey").value.trim();
+  const model=document.getElementById("kiModel").value.trim()||"claude-sonnet-5";
+  const persist=document.getElementById("kiPersist").checked;
+  sessionKey=key;
+  try{
+    window.localStorage.setItem("sifo_ra_model",model);
+    if(persist && key) window.localStorage.setItem("sifo_ra_apikey",key);
+    else window.localStorage.removeItem("sifo_ra_apikey");
+  }catch(e){}
+  closeModal("kiModal");
+  toast("KI-Einstellungen gespeichert");
+}
+function clearApiKey(){ sessionKey=""; try{ window.localStorage.removeItem("sifo_ra_apikey"); }catch(e){} document.getElementById("kiKey").value=""; document.getElementById("kiPersist").checked=false; toast("API-Key gelöscht"); }
+
+async function runKIFill(){
+  const key=getApiKey();
+  if(!key){ openKISettings(); return; }
+  if(!M.rows.length){ toast("Keine Gefährdungen zum Ausfüllen. Erst über den Katalog erfassen."); return; }
+  const targets=[];
+  M.rows.forEach((r,idx)=>{ if(r.status!=="geprueft") targets.push({idx, family:r.family, hazard:r.hazard, persons:r.persons, lifecycle:r.lifecycle, norms:r.norms, verify:r.verify}); });
+  if(!targets.length){ toast("Alle Zeilen sind bereits geprüft."); return; }
+  const btn=document.getElementById("kiFillBtn"); const label=btn.textContent; btn.disabled=true; btn.textContent="✦ KI füllt aus…";
+  setStatus("KI-Vorbelegung läuft…",true);
+  try{
+    const body={ model:getModel(), max_tokens:8000, temperature:0.1, system:KI_SYSTEM,
+      messages:[{role:"user", content:"Maschinenkontext und Gefährdungen als JSON:\n"+JSON.stringify({header:M.header, rows:targets})}] };
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{ method:"POST",
+      headers:{ "content-type":"application/json", "x-api-key":key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+      body:JSON.stringify(body) });
+    const data=await resp.json();
+    if(data.error){ throw new Error(data.error.message||"API-Fehler"); }
+    let text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+    const a=text.indexOf("{"), z=text.lastIndexOf("}");
+    if(a<0||z<0) throw new Error("Antwort ohne JSON.");
+    const parsed=JSON.parse(text.slice(a,z+1));
+    let n=0;
+    (parsed.rows||[]).forEach(pr=>{
+      const t=M.rows[pr.idx]; if(!t) return;
+      AI_ASSIGN.forEach(f=>{
+        if(pr[f]===undefined||pr[f]===null) return;
+        let v=pr[f];
+        if(["S","E","W","V","S2","E2","W2","V2"].includes(f)) v=(v===""?null:parseInt(v,10));
+        t[f]=v;
+      });
+      t.status="ki"; t._ai=snapshot(t); n++;
+    });
+    renderTable(); updateSummary(); scheduleSave();
+    toast(n+" Zeilen von der KI vorbelegt. Jetzt prüfen und freigeben.");
+  }catch(e){
+    setStatus("KI-Vorbelegung fehlgeschlagen");
+    openKISettings();
+    document.getElementById("kiErr").textContent="Fehler: "+e.message+" — Key, Modellname und Netzzugang prüfen.";
+  }finally{
+    btn.disabled=false; btn.textContent=label;
+  }
+}
+
 
 
 function optHtml(opts,val){ return opts.map(o=>`<option value="${o[0]}" ${String(o[0])===String(val)?"selected":""}>${o[1]}</option>`).join(""); }
