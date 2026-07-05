@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIFo Medical · Risikobeurteilung EN ISO 12100 / (EU) 2023/1230</title>
+<style>
+  :root{
+    --ink:#161A1D; --sub:#5B646C; --mute:#9AA3AD;
+    --paper:#F4F4EF; --card:#FFFFFF; --line:#E4E6E2; --line2:#EEF0ED;
+    --signal:#E8A33D; --signal-ink:#7A5410; --signal-bg:#FDF6EA;
+    --r-na:#9AA3AD; --r-na-bg:#F1F2EF;
+    --r-low:#2F7A56; --r-low-bg:#E7F3EC;
+    --r-mid:#9A6B10; --r-mid-bg:#FBF1DC;
+    --r-high:#B4551C; --r-high-bg:#FBEBDD;
+    --r-crit:#A82E27; --r-crit-bg:#FAE4E2;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--ui);line-height:1.4;font-size:13.5px}
+  button,input,select,textarea{font-family:inherit}
+
+  /* ---------- Top bar ---------- */
+  .topbar{position:sticky;top:0;z-index:40;background:#101418;color:#EDEFEA;border-bottom:1px solid #000}
+  .topbar .row{display:flex;align-items:center;gap:14px;padding:9px 16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:baseline;gap:9px;font-weight:700;letter-spacing:-.01em}
+  .brand .mark{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--signal);color:#101418;font-weight:800;font-size:12px}
+  .brand small{font-weight:500;color:#8B949B;letter-spacing:.12em;text-transform:uppercase;font-size:10px}
+  .spacer{flex:1}
+  .mselect{display:flex;align-items:center;gap:6px;background:#1B2126;border:1px solid #2A3238;border-radius:8px;padding:4px 6px 4px 10px}
+  .mselect select{background:transparent;border:0;color:#EDEFEA;font-size:13px;font-weight:600;max-width:230px;padding:3px 2px;outline:none}
+  .mselect select option{color:#111}
+  .tbtn{background:#1B2126;border:1px solid #2A3238;color:#DCE0DB;border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .tbtn:hover{background:#232A30;border-color:#39424a}
+  .tbtn.warn:hover{border-color:#7a3a34;color:#f0b3ac}
+  .tbtn.go{background:var(--signal);color:#101418;border-color:var(--signal)}
+  .tbtn.go:hover{background:#f0b255}
+  .save{font-size:11.5px;color:#8B949B;min-width:150px;text-align:right;font-variant-numeric:tabular-nums}
+  .save.dirty{color:var(--signal)}
+
+  .nostore{background:var(--signal-bg);color:var(--signal-ink);border-bottom:1px solid var(--signal);padding:7px 16px;font-size:12px;display:none}
+  .nostore.on{display:block}
+
+  /* ---------- Layout ---------- */
+  .wrap{max-width:1500px;margin:0 auto;padding:18px 16px 140px}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;overflow:hidden}
+  .phead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line2);cursor:pointer;user-select:none}
+  .phead .idx{font-family:var(--mono);font-size:11px;color:var(--signal-ink);background:var(--signal-bg);border:1px solid #F0Dcae;padding:2px 7px;border-radius:5px;font-weight:700}
+  .phead h2{margin:0;font-size:14.5px;font-weight:650;letter-spacing:-.01em}
+  .phead .sub{color:var(--sub);font-size:12px;font-weight:400}
+  .phead .chev{margin-left:auto;color:var(--mute);transition:transform .18s}
+  .panel.collapsed .pbody{display:none}
+  .panel.collapsed .chev{transform:rotate(-90deg)}
+  .pbody{padding:16px}
+
+  /* header form */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px 16px}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld.wide{grid-column:1/-1}
+  .fld label{font-size:11.5px;font-weight:600;color:var(--sub);letter-spacing:.01em}
+  .fld input,.fld textarea,.fld select{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;background:#fff;color:var(--ink);width:100%;resize:vertical}
+  .fld textarea{min-height:46px;line-height:1.4}
+  .fld input:focus,.fld textarea:focus,.fld select:focus{outline:2px solid var(--signal);outline-offset:1px;border-color:var(--signal)}
+
+  /* ---------- Toolbar above table ---------- */
+  .ttoolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .btn:hover{border-color:var(--mute)}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.primary:hover{background:#000}
+  .addfam{border:1px dashed var(--line);background:#fff;border-radius:8px;padding:7px 10px;font-size:12.5px;color:var(--sub)}
+  .count{margin-left:auto;font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+
+  /* ---------- The table ---------- */
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:72vh}
+  table.ra{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12.5px}
+  table.ra thead th{position:sticky;top:0;z-index:6;background:#20262B;color:#E9ECE7;font-weight:600;text-align:left;padding:7px 9px;border-right:1px solid #2C333A;white-space:nowrap;font-size:11.5px}
+  table.ra thead tr.grp th{background:#161B20;color:#9FB0A6;text-transform:uppercase;letter-spacing:.08em;font-size:10px;top:0}
+  table.ra thead tr.cols th{top:27px}
+  table.ra tbody td{border-bottom:1px solid var(--line2);border-right:1px solid var(--line2);padding:4px 5px;vertical-align:top;background:#fff}
+  table.ra tbody tr:hover td{background:#FCFBF7}
+  .colnum{position:sticky;left:0;z-index:5;background:#fff;border-right:1px solid var(--line)!important;min-width:44px;text-align:center}
+  table.ra thead th.colnum{z-index:7;background:#20262B}
+  tbody tr:hover .colnum{background:#FCFBF7}
+  .rn{font-family:var(--mono);font-size:11px;color:var(--mute);font-weight:700}
+  .rowmenu{display:flex;flex-direction:column;gap:2px;margin-top:4px;align-items:center}
+  .rowmenu button{border:0;background:#F1F2EF;color:var(--sub);width:20px;height:18px;border-radius:4px;font-size:11px;cursor:pointer;line-height:1;padding:0}
+  .rowmenu button:hover{background:var(--signal-bg);color:var(--signal-ink)}
+
+  td textarea, td select, td input{border:1px solid transparent;border-radius:6px;background:transparent;font-size:12.5px;color:var(--ink);width:100%;padding:5px 6px;resize:none;line-height:1.35}
+  td textarea{overflow:hidden;min-height:30px}
+  td textarea:hover,td select:hover,td input:hover{background:#F7F7F3}
+  td textarea:focus,td select:focus,td input:focus{outline:none;border-color:var(--signal);background:#fff;box-shadow:0 0 0 2px var(--signal-bg)}
+  td.txt{min-width:150px;max-width:230px}
+  td.txt.sm{min-width:120px;max-width:170px}
+  td.sel{min-width:130px}
+  td.param{min-width:66px}
+  td.param select{text-align:left;font-family:var(--mono);font-size:11.5px;padding:5px 3px}
+  td.meas{min-width:160px;max-width:230px}
+
+  .idxcell{min-width:96px}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-weight:700;font-size:12px;border-radius:6px;padding:3px 7px;border:1px solid transparent}
+  .badge.na{color:var(--r-na);background:var(--r-na-bg);border-color:#E2E4E0}
+  .badge.low{color:var(--r-low);background:var(--r-low-bg);border-color:#CFE6D8}
+  .badge.mid{color:var(--r-mid);background:var(--r-mid-bg);border-color:#EEDCB0}
+  .badge.high{color:var(--r-high);background:var(--r-high-bg);border-color:#EFD2BB}
+  .badge.crit{color:var(--r-crit);background:var(--r-crit-bg);border-color:#EEC7C3}
+  .badge .cls{font-family:var(--ui);font-weight:600;font-size:10px;letter-spacing:.02em}
+  .ovr{margin-top:4px;display:flex;align-items:center;gap:4px}
+  .ovr input{width:52px;border:1px solid var(--line);border-radius:5px;padding:3px 5px;font-family:var(--mono);font-size:11px;text-align:center}
+  .ovr span{font-size:10px;color:var(--mute)}
+  .plr{margin-top:5px;font-family:var(--mono);font-size:11px;color:var(--sub)}
+  .plr b{color:var(--ink)}
+  .plr input{width:54px;border:1px solid var(--line);border-radius:5px;padding:2px 4px;font-family:var(--mono);font-size:11px;text-align:center;margin-left:4px}
+
+  td.residual select{font-weight:600}
+  .resdot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+
+  .detailbtn{border:0;background:transparent;color:var(--signal-ink);font-size:11px;cursor:pointer;text-decoration:underline;padding:2px 0}
+
+  .emptyrow td{padding:26px;text-align:center;color:var(--mute);font-size:13px}
+
+  /* summary */
+  .sumgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  @media(max-width:720px){.sumgrid{grid-template-columns:repeat(2,1fr)}}
+  .stat{border:1px solid var(--line);border-radius:10px;padding:12px}
+  .stat .n{font-family:var(--mono);font-size:22px;font-weight:700;line-height:1}
+  .stat .l{font-size:11px;color:var(--sub);margin-top:5px}
+  .stat.low{background:var(--r-low-bg);border-color:#CFE6D8} .stat.low .n{color:var(--r-low)}
+  .stat.mid{background:var(--r-mid-bg);border-color:#EEDCB0} .stat.mid .n{color:var(--r-mid)}
+  .stat.high{background:var(--r-high-bg);border-color:#EFD2BB} .stat.high .n{color:var(--r-high)}
+  .stat.crit{background:var(--r-crit-bg);border-color:#EEC7C3} .stat.crit .n{color:var(--r-crit)}
+
+  /* methodology / legend */
+  .legend{font-size:12px;color:var(--sub);line-height:1.55}
+  .legend h3{font-size:12.5px;color:var(--ink);margin:0 0 6px}
+  .legend code{font-family:var(--mono);background:var(--line2);padding:1px 5px;border-radius:4px;color:var(--ink)}
+  .legend .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+  .disc{margin-top:12px;border-left:3px solid var(--signal);background:var(--signal-bg);padding:10px 12px;border-radius:0 8px 8px 0;color:var(--signal-ink);font-size:12px}
+
+  /* ---------- Modal ---------- */
+  .modal{position:fixed;inset:0;background:rgba(16,20,24,.55);z-index:80;display:none;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto}
+  .modal.on{display:flex}
+  .sheet{background:#fff;border-radius:14px;max-width:760px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  .sheet header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line2)}
+  .sheet header h3{margin:0;font-size:15px}
+  .sheet header .x{margin-left:auto;border:0;background:#F1F2EF;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:16px;color:var(--sub)}
+  .sheet .body{padding:16px 18px;max-height:70vh;overflow:auto}
+  .sheet footer{display:flex;gap:10px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line2)}
+  .fgroup{border:1px solid var(--line2);border-radius:10px;padding:12px;margin-bottom:12px}
+  .fgroup h4{margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--signal-ink)}
+  .confirm .sheet{max-width:420px}
+  .confirm .body{font-size:13.5px;color:var(--sub)}
+
+  /* ---------- Print / deliverable ---------- */
+  #printRoot{display:none}
+  @media print{
+    body{background:#fff}
+    .topbar,.nostore,.wrap,.modal{display:none!important}
+    #printRoot{display:block}
+    @page{size:A4 landscape;margin:12mm}
+  }
+  #printRoot *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="row">
+    <div class="brand"><span class="mark">S</span>SIFo Medical <small>Risikobeurteilung</small></div>
+    <div class="mselect">
+      <span style="color:#8B949B;font-size:12px">Maschine</span>
+      <select id="machineSel" onchange="switchMachine(this.value)"></select>
+    </div>
+    <a class="tbtn" href="index.html" style="text-decoration:none;display:inline-block">↩ Katalog</a>
+    <button class="tbtn" onclick="newMachine()">+ Neu</button>
+    <button class="tbtn" onclick="dupMachine()">Duplizieren</button>
+    <button class="tbtn warn" onclick="askDelete()">Löschen</button>
+    <div class="spacer"></div>
+    <button class="tbtn" onclick="exportJSON()">JSON</button>
+    <button class="tbtn" onclick="importJSON()">Import</button>
+    <button class="tbtn" onclick="exportCSV()">CSV</button>
+    <button class="tbtn go" onclick="openPrint()">Drucken / PDF</button>
+    <div class="save" id="saveState">Bereit</div>
+  </div>
+</div>
+<div class="nostore" id="nostore">Hinweis: In dieser Umgebung ist keine dauerhafte Speicherung verfügbar. Deine Eingaben bleiben nur in dieser Sitzung. Nutze <b>CSV</b> oder <b>JSON</b>, um zu sichern.</div>
+
+<div class="wrap">
+
+  <!-- Maschinensteckbrief -->
+  <section class="panel" id="panel-head">
+    <div class="phead" onclick="togglePanel('panel-head')">
+      <span class="idx">00</span><h2>Maschinensteckbrief <span class="sub">· Grenzen der Maschine &amp; Einstufung</span></h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="pbody">
+      <div class="grid" id="headGrid"></div>
+    </div>
+  </section>
+
+  <!-- Table -->
+  <div class="ttoolbar">
+    <button class="btn primary" onclick="addRow()">+ Gefährdung hinzufügen</button>
+    <select class="addfam" id="famQuick" onchange="if(this.value){addRow(this.value);this.value=''}">
+      <option value="">Schnell nach Familie…</option>
+    </select>
+    <span class="count" id="rowCount"></span>
+  </div>
+
+  <div class="tablewrap">
+    <table class="ra">
+      <thead>
+        <tr class="grp">
+          <th class="colnum" rowspan="2">#</th>
+          <th colspan="7">Identifikation &amp; Grenzen</th>
+          <th colspan="6">Risiko vor Maßnahmen</th>
+          <th colspan="3">Maßnahmen (3-Stufen-Hierarchie)</th>
+          <th colspan="5">Risiko nach Maßnahmen</th>
+          <th colspan="2">Bewertung</th>
+          <th colspan="2">Nachweis</th>
+        </tr>
+        <tr class="cols">
+          <th>Lebensphase</th><th>Gefährdungsfamilie</th><th>Konkrete Gefährdung</th>
+          <th>Gefährdungssituation</th><th>Auslösendes Ereignis</th><th>Möglicher Schaden</th><th>Betroffene Personen</th>
+          <th>S</th><th>E</th><th>W</th><th>V</th><th>Index</th><th>PLr / SIL</th>
+          <th>1 · Konstruktion</th><th>2 · Technisch</th><th>3 · Information</th>
+          <th>S</th><th>E</th><th>W</th><th>V</th><th>Index</th>
+          <th>Restrisiko</th><th>Begründung</th>
+          <th>Normbezüge</th><th>Prüfhinweise</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Summary -->
+  <section class="panel" id="panel-sum" style="margin-top:16px">
+    <div class="phead" onclick="togglePanel('panel-sum')">
+      <span class="idx">99</span><h2>Restrisiko-Zusammenfassung &amp; offene Punkte</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="pbody">
+      <div class="sumgrid" id="sumGrid"></div>
+      <div class="grid">
+        <div class="fld wide">
+          <label>Restrisiko-Zusammenfassung (Gesamtaussage über die verbleibenden Risiken)</label>
+          <textarea id="sumResidual" rows="3" data-sum="residualSummary"></textarea>
+        </div>
+        <div class="fld wide">
+          <label>Offene Punkte / noch zu verifizieren</label>
+          <textarea id="sumOpen" rows="3" data-sum="openPoints"></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Methodology -->
+  <section class="panel">
+    <div class="phead" onclick="togglePanel('panel-meth')">
+      <span class="idx">M</span><h2>Methodik &amp; Bewertungsschlüssel <span class="sub">· transparent, überschreibbar</span></h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="pbody legend" id="panel-meth-body">
+      <div class="cols">
+        <div>
+          <h3>Risiko-Index (Entwurf)</h3>
+          Provisorischer Index: <code>Index = S × (E + W + V)</code>. Wertebereich 3–44.<br>
+          Klassen: <b>gering</b> ≤6 · <b>mittel</b> 7–14 · <b>hoch</b> 15–26 · <b>sehr hoch</b> ≥27.<br>
+          Der Index ist ein Vorschlag zur Priorisierung. Er ersetzt <u>nicht</u> die validierte Bewertungsmatrix des Experten. Jede Zelle ist manuell überschreibbar.
+        </div>
+        <div>
+          <h3>Parameter</h3>
+          <b>S</b> Schwere: 1 leicht · 2 mittel · 3 schwer · 4 tödlich<br>
+          <b>E</b> Exposition/Häufigkeit: 1 selten · 2 gelegentlich · 3 häufig · 4 ständig<br>
+          <b>W</b> Eintrittswahrscheinlichkeit: 1 unwahrscheinlich … 4 sehr wahrscheinlich<br>
+          <b>V</b> Vermeidbarkeit: 1 möglich · 2 bedingt · 3 kaum
+        </div>
+        <div>
+          <h3>PLr-Vorschlag (informativ)</h3>
+          Ableitung über den Risikograph nach EN ISO 13849-1 (Anhang A):
+          S1/S2 aus Schwere, F1/F2 aus Exposition, P1/P2 aus Vermeidbarkeit. Ergebnis a–e. Nur relevant, wenn die Sicherheitsfunktion steuerungsbasiert umgesetzt wird. Vorschlag, kein Nachweis.
+        </div>
+        <div>
+          <h3>Normrahmen</h3>
+          Methodik nach <b>EN ISO 12100:2010</b> (Grenzen, Gefährdungsidentifikation, 3-Stufen-Hierarchie, Dokumentation). Rechtsrahmen <b>Verordnung (EU) 2023/1230</b>. Abstände EN ISO 13857/13854, Steuerung EN ISO 13849-1 / IEC 62061, thermisch EN ISO 13732.
+        </div>
+      </div>
+      <div class="disc">
+        <b>Scope &amp; Status.</b> Dieses Dokument ist die dokumentierte Risikobeurteilung als <b>Entwurf</b> und erfüllt den Risikobeurteilungs-Baustein der Verordnung (EU) 2023/1230. Es ist <b>expertengeprüft freizugeben</b> und ersetzt weder die fachkundige Bewertung noch das Konformitätsbewertungsverfahren, die technische Dokumentation, die EU-Konformitätserklärung, die Betriebsanleitung oder die CE-Kennzeichnung. Anhang-Zuordnungen und Normstellen sind vor Verwendung am amtlichen Verordnungstext gegenzuprüfen.
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Detail modal -->
+<div class="modal" id="detailModal">
+  <div class="sheet">
+    <header><h3 id="detailTitle">Gefährdung bearbeiten</h3><button class="x" onclick="closeDetail()">×</button></header>
+    <div class="body" id="detailBody"></div>
+    <footer>
+      <button class="btn" onclick="closeDetail()">Schließen</button>
+      <button class="btn primary" onclick="closeDetail()">Übernehmen</button>
+    </footer>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal confirm" id="confirmModal">
+  <div class="sheet">
+    <header><h3 id="confirmTitle">Bestätigen</h3><button class="x" onclick="closeConfirm()">×</button></header>
+    <div class="body" id="confirmBody"></div>
+    <footer>
+      <button class="btn" onclick="closeConfirm()">Abbrechen</button>
+      <button class="btn primary" id="confirmOk">Bestätigen</button>
+    </footer>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="modal confirm" id="importModal">
+  <div class="sheet" style="max-width:560px">
+    <header><h3>Daten importieren (JSON)</h3><button class="x" onclick="closeModal('importModal')">×</button></header>
+    <div class="body">
+      <p style="margin:0 0 8px;font-size:12.5px;color:var(--sub)">Füge hier den JSON-Export einer Maschine ein (z. B. aus deinem n8n-Workflow). Wird als neue Maschine angelegt.</p>
+      <textarea id="importText" rows="9" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:11.5px"></textarea>
+      <div id="importErr" style="color:var(--r-crit);font-size:12px;margin-top:6px"></div>
+    </div>
+    <footer>
+      <button class="btn" onclick="closeModal('importModal')">Abbrechen</button>
+      <button class="btn primary" onclick="doImport()">Importieren</button>
+    </footer>
+  </div>
+</div>
+
+<div id="printRoot"></div>
+
+<script>
+/* ============================ Config ============================ */
+const LIFECYCLES=["Transport","Montage/Installation","Inbetriebnahme","Normalbetrieb","Rüsten","Reinigung","Wartung","Störungsbehebung","Demontage/Entsorgung"];
+const FAMILIES=["Mechanisch","Elektrisch","Thermisch","Lärm","Vibration","Strahlung","Werkstoffe/Stoffe","Ergonomie","Betriebsumgebung","Steuerung/funkt. Sicherheit","Cybersecurity/Korrumpierung","Autonomes Verhalten (KI/ML)","Kombination"];
+const S_OPT=[[1,"1 · leicht"],[2,"2 · mittel"],[3,"3 · schwer"],[4,"4 · tödlich"]];
+const E_OPT=[[1,"1 · selten"],[2,"2 · gelegentlich"],[3,"3 · häufig"],[4,"4 · ständig"]];
+const W_OPT=[[1,"1 · unwahrsch."],[2,"2 · möglich"],[3,"3 · wahrsch."],[4,"4 · sehr wahrsch."]];
+const V_OPT=[[1,"1 · möglich"],[2,"2 · bedingt"],[3,"3 · kaum"]];
+const RESIDUAL=[["","—"],["akzeptabel","akzeptabel"],["bedingt","bedingt akzeptabel"],["nicht","nicht akzeptabel"]];
+const OPERATORS=["Qualifiziert","Unterwiesen","Laie","Gemischt"];
+
+/* ============================ Storage ============================ */
+const IDXKEY="sifo_ra_index_v2";
+const MKEY=id=>"sifo_ra_m_"+id;
+const HANDOFF_KEY="sifo_ra_handoff";
+const STORE=(function(){
+  const claude=(typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function");
+  let ls=false;
+  try{ const k="__sifo_probe__"; window.localStorage.setItem(k,"1"); window.localStorage.removeItem(k); ls=true; }catch(e){ ls=false; }
+  const mem={};
+  return {
+    kind: claude?"claude":(ls?"local":"memory"),
+    async get(k){
+      if(claude){ try{const r=await window.storage.get(k,false);return r?JSON.parse(r.value):null;}catch(e){return null;} }
+      if(ls){ try{const v=window.localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;} }
+      return k in mem?mem[k]:null;
+    },
+    async set(k,v){
+      if(claude){ try{return !!(await window.storage.set(k,JSON.stringify(v),false));}catch(e){return false;} }
+      if(ls){ try{window.localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;} }
+      mem[k]=v;return true;
+    },
+    async del(k){
+      if(claude){ try{await window.storage.delete(k,false);}catch(e){}return; }
+      if(ls){ try{window.localStorage.removeItem(k);}catch(e){}return; }
+      delete mem[k];
+    }
+  };
+})();
+const hasStore=(STORE.kind!=="memory");
+async function sGet(k){ return STORE.get(k); }
+async function sSet(k,v){ return STORE.set(k,v); }
+async function sDel(k){ return STORE.del(k); }
+function readHandoff(){ try{ const raw=window.localStorage.getItem(HANDOFF_KEY); if(raw){ window.localStorage.removeItem(HANDOFF_KEY); return JSON.parse(raw); } }catch(e){} return null; }
+
+/* ============================ State ============================ */
+let INDEX=[]; let M=null; let activeId=null; let saveTimer=null;
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+function blankRow(family){
+  return {id:uid(),lifecycle:"",family:family||"",hazard:"",situation:"",event:"",harm:"",persons:"",
+    S:null,E:null,W:null,V:null,idxBeforeOverride:"",plrOverride:"",
+    m1:"",m2:"",m3:"",
+    S2:null,E2:null,W2:null,V2:null,idxAfterOverride:"",
+    residual:"",residualWhy:"",norms:"",verify:""};
+}
+function blankMachine(id,name){
+  return {id,name:name||"Neue Maschine",createdAt:Date.now(),updatedAt:Date.now(),
+    header:{company:"",machineName:name||"",machineType:"",drawingNo:"",intendedUse:"",misuse:"",
+      operators:"",classification:"",annexI:"",assessor:"Simon Foeger",date:new Date().toISOString().slice(0,10),revision:"1.0"},
+    rows:[],
+    summary:{residualSummary:"",openPoints:""}};
+}
+
+/* ============================ Scoring ============================ */
+function computeIndex(S,E,W,V){ if(!S||!E||!W||!V) return null; return S*(E+W+V); }
+function riskClass(idx){
+  if(idx==null||idx==="") return {key:"na",label:"—"};
+  idx=+idx;
+  if(idx<=6) return {key:"low",label:"gering"};
+  if(idx<=14) return {key:"mid",label:"mittel"};
+  if(idx<=26) return {key:"high",label:"hoch"};
+  return {key:"crit",label:"sehr hoch"};
+}
+function effIndexBefore(r){ const o=r.idxBeforeOverride; if(o!==""&&o!=null&&!isNaN(+o)) return +o; return computeIndex(r.S,r.E,r.W,r.V); }
+function effIndexAfter(r){ const o=r.idxAfterOverride; if(o!==""&&o!=null&&!isNaN(+o)) return +o; return computeIndex(r.S2,r.E2,r.W2,r.V2); }
+function suggestPLr(S,E,V){
+  if(!S||!E||!V) return "";
+  const Sx=S>=3?"S2":"S1", Fx=E>=3?"F2":"F1", Px=V>=2?"P2":"P1";
+  const map={S1F1P1:"a",S1F1P2:"b",S1F2P1:"b",S1F2P2:"c",S2F1P1:"c",S2F1P2:"d",S2F2P1:"d",S2F2P2:"e"};
+  return map[Sx+Fx+Px]||"";
+}
+function effPLr(r){ return (r.plrOverride&&r.plrOverride.trim())?r.plrOverride.trim():suggestPLr(r.S,r.E,r.V); }
+
+/* ============================ Boot ============================ */
+async function boot(){
+  if(!hasStore) document.getElementById("nostore").classList.add("on");
+  INDEX=await sGet(IDXKEY)||[];
+  const ho=readHandoff();
+  if(ho){ await importMachineObject(ho); document.getElementById("panel-head").classList.remove("collapsed"); }
+  else if(INDEX.length){ activeId=INDEX[0].id; M=await sGet(MKEY(activeId)); }
+  if(!M){ await createMachine("Neue Maschine",true); }
+  buildFamilyQuick();
+  renderAll();
+  if(ho) toast("Aus Katalog übernommen · "+M.rows.length+" Gefährdungen als Entwurf angelegt");
+}
+async function importMachineObject(obj){
+  const id=uid();
+  const nm=blankMachine(id,(obj.header&&obj.header.machineName)||obj.name||"Importiert");
+  if(obj.header) Object.assign(nm.header,obj.header);
+  if(Array.isArray(obj.rows)) nm.rows=obj.rows.map(r=>Object.assign(blankRow(),r,{id:uid()}));
+  if(obj.summary) Object.assign(nm.summary,obj.summary);
+  nm.name=nm.header.machineName||"Importiert";
+  M=nm; activeId=id; INDEX.unshift({id,name:nm.name,updatedAt:nm.updatedAt});
+  await sSet(MKEY(id),nm); await sSet(IDXKEY,INDEX);
+  return nm;
+}
+function toast(msg){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; t.style.cssText="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#101418;color:#fff;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:600;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .25s"; document.body.appendChild(t); }
+  t.textContent=msg; requestAnimationFrame(()=>t.style.opacity="1");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.opacity="0",3200);
+}
+async function createMachine(name,silent){
+  const id=uid(); M=blankMachine(id,name); activeId=id;
+  INDEX.unshift({id,name:M.header.machineName||name,updatedAt:M.updatedAt});
+  await sSet(MKEY(id),M); await sSet(IDXKEY,INDEX);
+  if(!silent) renderAll();
+}
+
+/* ============================ Save ============================ */
+function setStatus(t,dirty){ const el=document.getElementById("saveState"); el.textContent=t; el.classList.toggle("dirty",!!dirty); }
+function scheduleSave(){ setStatus("Ungespeicherte Änderungen",true); clearTimeout(saveTimer); saveTimer=setTimeout(doSave,600); }
+async function doSave(){
+  M.updatedAt=Date.now();
+  const name=M.header.machineName||M.name||"Unbenannt"; M.name=name;
+  let e=INDEX.find(x=>x.id===activeId);
+  if(e){ e.name=name; e.updatedAt=M.updatedAt; } else INDEX.unshift({id:activeId,name,updatedAt:M.updatedAt});
+  const ok=await sSet(MKEY(activeId),M); await sSet(IDXKEY,INDEX);
+  refreshMachineSelect();
+  setStatus(ok?("Gespeichert · "+timeStr(M.updatedAt)):"Speichern fehlgeschlagen");
+}
+function timeStr(ts){ const d=new Date(ts); return d.toLocaleDateString("de-AT")+" "+d.toLocaleTimeString("de-AT",{hour:"2-digit",minute:"2-digit"}); }
+
+/* ============================ Machine ops ============================ */
+function refreshMachineSelect(){
+  const sel=document.getElementById("machineSel");
+  sel.innerHTML=INDEX.map(m=>`<option value="${m.id}" ${m.id===activeId?"selected":""}>${escapeHtml(m.name||"Unbenannt")}</option>`).join("");
+}
+async function switchMachine(id){ if(id===activeId) return; clearTimeout(saveTimer); await doSave(); activeId=id; M=await sGet(MKEY(id))||blankMachine(id,"Maschine"); renderAll(); }
+async function newMachine(){ clearTimeout(saveTimer); await doSave(); await createMachine("Neue Maschine"); document.getElementById("panel-head").classList.remove("collapsed"); }
+async function dupMachine(){ clearTimeout(saveTimer); await doSave(); const copy=JSON.parse(JSON.stringify(M)); copy.id=uid(); copy.createdAt=copy.updatedAt=Date.now(); copy.header.machineName=(M.header.machineName||M.name||"Maschine")+" (Kopie)"; copy.name=copy.header.machineName; copy.rows.forEach(r=>r.id=uid()); M=copy; activeId=copy.id; INDEX.unshift({id:copy.id,name:copy.name,updatedAt:copy.updatedAt}); await sSet(MKEY(copy.id),copy); await sSet(IDXKEY,INDEX); renderAll(); }
+function askDelete(){
+  openConfirm("Maschine löschen","Willst du „"+escapeHtml(M.header.machineName||M.name)+"“ endgültig löschen? Das kann nicht rückgängig gemacht werden.",async()=>{
+    await sDel(MKEY(activeId)); INDEX=INDEX.filter(x=>x.id!==activeId); await sSet(IDXKEY,INDEX);
+    if(INDEX.length){ activeId=INDEX[0].id; M=await sGet(MKEY(activeId)); } else { await createMachine("Neue Maschine",true); }
+    closeConfirm(); renderAll();
+  });
+}
+
+/* ============================ Render ============================ */
+function togglePanel(id){ document.getElementById(id).classList.toggle("collapsed"); }
+
+function renderAll(){ refreshMachineSelect(); renderHead(); renderTable(); renderSummaryFields(); updateSummary(); setStatus("Gespeichert · "+timeStr(M.updatedAt)); }
+
+function headField(key,label,type,opts,wide){
+  const v=M.header[key]||"";
+  let ctl;
+  if(type==="area") ctl=`<textarea data-h="${key}" rows="2">${escapeHtml(v)}</textarea>`;
+  else if(type==="select") ctl=`<select data-h="${key}"><option value="">—</option>${opts.map(o=>`<option ${o===v?"selected":""}>${o}</option>`).join("")}</select>`;
+  else ctl=`<input data-h="${key}" value="${escapeHtml(v)}">`;
+  return `<div class="fld ${wide?"wide":""}"><label>${label}</label>${ctl}</div>`;
+}
+function renderHead(){
+  const g=document.getElementById("headGrid");
+  g.innerHTML=[
+    headField("company","Unternehmen","text"),
+    headField("machineName","Maschinenbezeichnung","text"),
+    headField("machineType","Typ / Modell","text"),
+    headField("drawingNo","Zeichnungs- / Doku-Nr.","text"),
+    headField("intendedUse","Bestimmungsgemäße Verwendung","area",null,true),
+    headField("misuse","Vernünftigerweise vorhersehbare Fehlanwendung","area",null,true),
+    headField("operators","Bedienpersonal","select",OPERATORS),
+    headField("classification","Einstufung nach (EU) 2023/1230","text"),
+    headField("annexI","Anhang I (höheres Risiko)?","select",["Nein","Ja","Unklar"]),
+    headField("assessor","Ersteller","text"),
+    headField("date","Datum","text"),
+    headField("revision","Revision","text"),
+  ].join("");
+  g.querySelectorAll("[data-h]").forEach(el=>{
+    const ev=el.tagName==="SELECT"?"change":"input";
+    el.addEventListener(ev,()=>{ M.header[el.dataset.h]=el.value; if(el.dataset.h==="machineName"){ refreshMachineSelect(); } scheduleSave(); });
+  });
+}
+
+function optHtml(opts,val){ return opts.map(o=>`<option value="${o[0]}" ${String(o[0])===String(val)?"selected":""}>${o[1]}</option>`).join(""); }
+function selCell(field,opts,val,cls){ return `<select data-field="${field}" class="${cls||""}"><option value="">—</option>${optHtml(opts,val)}</select>`; }
+function areaCell(field,val){ return `<textarea data-field="${field}" rows="1">${escapeHtml(val||"")}</textarea>`; }
+
+function idxCellHtml(r){
+  const idx=effIndexBefore(r), c=riskClass(idx);
+  return `<div data-cell="idxBefore"><span class="badge ${c.key}">${idx==null?"—":idx}<span class="cls">${c.label}</span></span></div>
+    <div class="ovr"><input data-field="idxBeforeOverride" value="${escapeHtml(r.idxBeforeOverride)}" placeholder="${computeIndex(r.S,r.E,r.W,r.V)??""}"><span>man.</span></div>`;
+}
+function plrCellHtml(r){
+  const plr=effPLr(r);
+  return `<div class="plr" data-cell="plr" style="margin-top:0">PLr <b>${plr||"—"}</b><input data-field="plrOverride" value="${escapeHtml(r.plrOverride)}" placeholder="${suggestPLr(r.S,r.E,r.V)||"–"}"></div>`;
+}
+function idxAfterHtml(r){
+  const idx=effIndexAfter(r), c=riskClass(idx);
+  return `<div data-cell="idxAfter"><span class="badge ${c.key}">${idx==null?"—":idx}<span class="cls">${c.label}</span></span></div>
+    <div class="ovr"><input data-field="idxAfterOverride" value="${escapeHtml(r.idxAfterOverride)}" placeholder="${computeIndex(r.S2,r.E2,r.W2,r.V2)??""}"><span>man.</span></div>`;
+}
+function residualCell(r){
+  const map={akzeptabel:"var(--r-low)",bedingt:"var(--r-mid)",nicht:"var(--r-crit)"};
+  const dot=r.residual?`<span class="resdot" style="background:${map[r.residual]}"></span>`:"";
+  return `<div>${dot}<select data-field="residual" style="width:auto;min-width:120px">${RESIDUAL.map(o=>`<option value="${o[0]}" ${o[0]===r.residual?"selected":""}>${o[1]}</option>`).join("")}</select></div>`;
+}
+
+function rowHtml(r,i){
+  return `<tr data-id="${r.id}">
+    <td class="colnum">
+      <div class="rn">${i+1}</div>
+      <div class="rowmenu">
+        <button title="Detail" onclick="openDetail('${r.id}')">⤢</button>
+        <button title="Duplizieren" onclick="dupRow('${r.id}')">⧉</button>
+        <button title="Nach oben" onclick="moveRow('${r.id}',-1)">▲</button>
+        <button title="Nach unten" onclick="moveRow('${r.id}',1)">▼</button>
+        <button title="Löschen" onclick="delRow('${r.id}')">✕</button>
+      </div>
+    </td>
+    <td class="sel">${selCell("lifecycle",LIFECYCLES.map(x=>[x,x]),r.lifecycle)}</td>
+    <td class="sel">${selCell("family",FAMILIES.map(x=>[x,x]),r.family)}</td>
+    <td class="txt">${areaCell("hazard",r.hazard)}</td>
+    <td class="txt">${areaCell("situation",r.situation)}</td>
+    <td class="txt sm">${areaCell("event",r.event)}</td>
+    <td class="txt sm">${areaCell("harm",r.harm)}</td>
+    <td class="txt sm">${areaCell("persons",r.persons)}</td>
+    <td class="param">${selCell("S",S_OPT,r.S)}</td>
+    <td class="param">${selCell("E",E_OPT,r.E)}</td>
+    <td class="param">${selCell("W",W_OPT,r.W)}</td>
+    <td class="param">${selCell("V",V_OPT,r.V)}</td>
+    <td class="idxcell">${idxCellHtml(r)}</td>
+    <td class="param" style="min-width:96px">${plrCellHtml(r)}</td>
+    <td class="meas">${areaCell("m1",r.m1)}</td>
+    <td class="meas">${areaCell("m2",r.m2)}</td>
+    <td class="meas">${areaCell("m3",r.m3)}</td>
+    <td class="param">${selCell("S2",S_OPT,r.S2)}</td>
+    <td class="param">${selCell("E2",E_OPT,r.E2)}</td>
+    <td class="param">${selCell("W2",W_OPT,r.W2)}</td>
+    <td class="param">${selCell("V2",V_OPT,r.V2)}</td>
+    <td class="idxcell">${idxAfterHtml(r)}</td>
+    <td class="residual">${residualCell(r)}</td>
+    <td class="txt sm">${areaCell("residualWhy",r.residualWhy)}</td>
+    <td class="txt sm">${areaCell("norms",r.norms)}</td>
+    <td class="txt sm">${areaCell("verify",r.verify)}</td>
+  </tr>`;
+}
+/* NOTE: PLr header spans its own column; move PLr into its own cell */
+function renderTable(){
+  const tb=document.getElementById("tbody");
+  if(!M.rows.length){
+    tb.innerHTML=`<tr class="emptyrow"><td colspan="26">Noch keine Gefährdungen erfasst. Füge oben eine Gefährdung hinzu oder importiere JSON aus deinem Workflow.</td></tr>`;
+  } else {
+    tb.innerHTML=M.rows.map((r,i)=>rowHtml(r,i)).join("");
+    tb.querySelectorAll("textarea").forEach(autoGrow);
+  }
+  document.getElementById("rowCount").textContent=M.rows.length+" Gefährdung"+(M.rows.length===1?"":"en");
+}
+
+/* Because the PLr got merged into the Index cell above, fix the header:
+   Index+PLr share visual space; keep 26 columns consistent. */
+
+/* ============================ Inline editing ============================ */
+const tbody=document.getElementById("tbody");
+tbody.addEventListener("input",onCell);
+tbody.addEventListener("change",onCell);
+function onCell(e){
+  const el=e.target.closest("[data-field]"); if(!el) return;
+  const tr=el.closest("tr"); const id=tr.dataset.id; const r=M.rows.find(x=>x.id===id); if(!r) return;
+  const f=el.dataset.field; let v=el.value;
+  if(["S","E","W","V","S2","E2","W2","V2"].includes(f)) v=(v===""?null:parseInt(v,10));
+  r[f]=v;
+  if(el.tagName==="TEXTAREA") autoGrow(el);
+  if(["S","E","W","V","idxBeforeOverride","plrOverride"].includes(f)) refreshBefore(tr,r);
+  if(["S2","E2","W2","V2","idxAfterOverride"].includes(f)) refreshAfter(tr,r);
+  if(f==="residual") refreshResidualDot(tr,r);
+  if(["S","E","W","V","S2","E2","W2","V2","idxBeforeOverride","idxAfterOverride","residual"].includes(f)) updateSummary();
+  scheduleSave();
+}
+function refreshBefore(tr,r){
+  const idx=effIndexBefore(r),c=riskClass(idx);
+  const cell=tr.querySelector('[data-cell="idxBefore"]');
+  if(cell) cell.innerHTML=`<span class="badge ${c.key}">${idx==null?"—":idx}<span class="cls">${c.label}</span></span>`;
+  const ovr=tr.querySelector('[data-field="idxBeforeOverride"]'); if(ovr) ovr.placeholder=computeIndex(r.S,r.E,r.W,r.V)??"";
+  const plrCell=tr.querySelector('[data-cell="plr"]'); const plr=effPLr(r);
+  if(plrCell){ plrCell.querySelector("b").textContent=plr||"—"; const pin=plrCell.querySelector('[data-field="plrOverride"]'); if(pin) pin.placeholder=suggestPLr(r.S,r.E,r.V)||"–"; }
+}
+function refreshAfter(tr,r){
+  const idx=effIndexAfter(r),c=riskClass(idx);
+  const cell=tr.querySelector('[data-cell="idxAfter"]');
+  if(cell) cell.innerHTML=`<span class="badge ${c.key}">${idx==null?"—":idx}<span class="cls">${c.label}</span></span>`;
+  const ovr=tr.querySelector('[data-field="idxAfterOverride"]'); if(ovr) ovr.placeholder=computeIndex(r.S2,r.E2,r.W2,r.V2)??"";
+}
+function refreshResidualDot(tr,r){
+  const map={akzeptabel:"var(--r-low)",bedingt:"var(--r-mid)",nicht:"var(--r-crit)"};
+  const old=tr.querySelector(".residual .resdot"); if(old) old.remove();
+  if(r.residual){ const dot=document.createElement("span"); dot.className="resdot"; dot.style.background=map[r.residual]; tr.querySelector(".residual div").prepend(dot); }
+}
+function autoGrow(el){ el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,180)+"px"; }
+
+/* ============================ Row ops ============================ */
+function addRow(family){ M.rows.push(blankRow(family)); renderTable(); updateSummary(); scheduleSave(); const tb=document.getElementById("tbody"); tb.lastElementChild.scrollIntoView({behavior:"smooth",block:"center"}); }
+function delRow(id){ M.rows=M.rows.filter(r=>r.id!==id); renderTable(); updateSummary(); scheduleSave(); }
+function dupRow(id){ const i=M.rows.findIndex(r=>r.id===id); if(i<0) return; const c=JSON.parse(JSON.stringify(M.rows[i])); c.id=uid(); M.rows.splice(i+1,0,c); renderTable(); updateSummary(); scheduleSave(); }
+function moveRow(id,dir){ const i=M.rows.findIndex(r=>r.id===id); const j=i+dir; if(i<0||j<0||j>=M.rows.length) return; const t=M.rows[i]; M.rows[i]=M.rows[j]; M.rows[j]=t; renderTable(); scheduleSave(); }
+
+/* ============================ Detail modal ============================ */
+let detailId=null;
+function dField(r,f,label,type,opts){
+  let ctl;
+  if(type==="area") ctl=`<textarea data-df="${f}" rows="2" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px">${escapeHtml(r[f]||"")}</textarea>`;
+  else if(type==="select") ctl=`<select data-df="${f}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px"><option value="">—</option>${opts.map(o=>`<option value="${o[0]}" ${String(o[0])===String(r[f])?"selected":""}>${o[1]}</option>`).join("")}</select>`;
+  else ctl=`<input data-df="${f}" value="${escapeHtml(r[f]||"")}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px">`;
+  return `<div class="fld"><label style="font-size:11.5px;font-weight:600;color:var(--sub)">${label}</label>${ctl}</div>`;
+}
+function openDetail(id){
+  detailId=id; const r=M.rows.find(x=>x.id===id); if(!r) return;
+  const lc=LIFECYCLES.map(x=>[x,x]), fam=FAMILIES.map(x=>[x,x]);
+  document.getElementById("detailBody").innerHTML=`
+    <div class="fgroup"><h4>Identifikation &amp; Grenzen</h4><div class="grid">
+      ${dField(r,"lifecycle","Lebensphase","select",lc)}
+      ${dField(r,"family","Gefährdungsfamilie","select",fam)}
+      ${dField(r,"hazard","Konkrete Gefährdung","area")}
+      ${dField(r,"situation","Gefährdungssituation","area")}
+      ${dField(r,"event","Auslösendes Ereignis","area")}
+      ${dField(r,"harm","Möglicher Schaden","area")}
+      ${dField(r,"persons","Betroffene Personen","area")}
+    </div></div>
+    <div class="fgroup"><h4>Risiko vor Maßnahmen</h4><div class="grid">
+      ${dField(r,"S","Schwere (S)","select",S_OPT)}
+      ${dField(r,"E","Exposition (E)","select",E_OPT)}
+      ${dField(r,"W","Wahrscheinlichkeit (W)","select",W_OPT)}
+      ${dField(r,"V","Vermeidbarkeit (V)","select",V_OPT)}
+      ${dField(r,"idxBeforeOverride","Index-Override (optional)","text")}
+      ${dField(r,"plrOverride","PLr/SIL-Override (optional)","text")}
+    </div></div>
+    <div class="fgroup"><h4>Maßnahmen · 3-Stufen-Hierarchie</h4><div class="grid">
+      ${dField(r,"m1","Stufe 1 · Inhärent sichere Konstruktion","area")}
+      ${dField(r,"m2","Stufe 2 · Technische Schutzmaßnahmen","area")}
+      ${dField(r,"m3","Stufe 3 · Benutzerinformation","area")}
+    </div></div>
+    <div class="fgroup"><h4>Risiko nach Maßnahmen &amp; Bewertung</h4><div class="grid">
+      ${dField(r,"S2","Schwere (S)","select",S_OPT)}
+      ${dField(r,"E2","Exposition (E)","select",E_OPT)}
+      ${dField(r,"W2","Wahrscheinlichkeit (W)","select",W_OPT)}
+      ${dField(r,"V2","Vermeidbarkeit (V)","select",V_OPT)}
+      ${dField(r,"idxAfterOverride","Index-Override (optional)","text")}
+      ${dField(r,"residual","Restrisiko","select",RESIDUAL.slice(1))}
+      ${dField(r,"residualWhy","Begründung Restrisiko","area")}
+    </div></div>
+    <div class="fgroup"><h4>Nachweis</h4><div class="grid">
+      ${dField(r,"norms","Normbezüge","area")}
+      ${dField(r,"verify","Prüfhinweise / Verifikation","area")}
+    </div></div>`;
+  document.getElementById("detailBody").querySelectorAll("[data-df]").forEach(el=>{
+    const ev=el.tagName==="SELECT"?"change":"input";
+    el.addEventListener(ev,()=>{ let f=el.dataset.df,v=el.value; if(["S","E","W","V","S2","E2","W2","V2"].includes(f)) v=(v===""?null:parseInt(v,10)); r[f]=v; scheduleSave(); });
+  });
+  document.getElementById("detailTitle").textContent=(r.hazard||"Gefährdung")+" · bearbeiten";
+  document.getElementById("detailModal").classList.add("on");
+}
+function closeDetail(){ document.getElementById("detailModal").classList.remove("on"); renderTable(); updateSummary(); detailId=null; }
+
+/* ============================ Summary ============================ */
+function renderSummaryFields(){
+  const rs=document.getElementById("sumResidual"), op=document.getElementById("sumOpen");
+  rs.value=M.summary.residualSummary||""; op.value=M.summary.openPoints||"";
+  rs.oninput=()=>{ M.summary.residualSummary=rs.value; scheduleSave(); };
+  op.oninput=()=>{ M.summary.openPoints=op.value; scheduleSave(); };
+}
+function updateSummary(){
+  let low=0,mid=0,high=0,crit=0,notOk=0;
+  M.rows.forEach(r=>{ const c=riskClass(effIndexAfter(r)); if(c.key==="low")low++;else if(c.key==="mid")mid++;else if(c.key==="high")high++;else if(c.key==="crit")crit++; if(r.residual==="nicht")notOk++; });
+  const g=document.getElementById("sumGrid");
+  g.innerHTML=`
+    <div class="stat low"><div class="n">${low}</div><div class="l">Restrisiko gering</div></div>
+    <div class="stat mid"><div class="n">${mid}</div><div class="l">Restrisiko mittel</div></div>
+    <div class="stat high"><div class="n">${high}</div><div class="l">Restrisiko hoch</div></div>
+    <div class="stat crit"><div class="n">${crit+notOk?crit:0}</div><div class="l">sehr hoch · ${notOk} nicht akzeptabel</div></div>`;
+  document.getElementById("rowCount").textContent=M.rows.length+" Gefährdung"+(M.rows.length===1?"":"en");
+}
+
+/* ============================ Confirm / modal ============================ */
+function openConfirm(title,body,onOk){ document.getElementById("confirmTitle").textContent=title; document.getElementById("confirmBody").innerHTML=body; const b=document.getElementById("confirmOk"); b.onclick=onOk; document.getElementById("confirmModal").classList.add("on"); }
+function closeConfirm(){ document.getElementById("confirmModal").classList.remove("on"); }
+function closeModal(id){ document.getElementById(id).classList.remove("on"); }
+
+/* ============================ CSV ============================ */
+function exportCSV(){
+  const sep=";"; const rows=[];
+  const esc=v=>{ v=(v==null?"":String(v)); if(/[";\n\r]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; return v; };
+  const line=a=>a.map(esc).join(sep);
+  const h=M.header;
+  rows.push(line(["SIFo Medical — Risikobeurteilung nach EN ISO 12100 / Verordnung (EU) 2023/1230"]));
+  rows.push(line(["Status","Entwurf — Expertenprüfung erforderlich"]));
+  [["Unternehmen",h.company],["Maschine",h.machineName],["Typ / Modell",h.machineType],["Zeichnungs-/Doku-Nr.",h.drawingNo],
+   ["Bestimmungsgemäße Verwendung",h.intendedUse],["Vorhersehbare Fehlanwendung",h.misuse],["Bedienpersonal",h.operators],
+   ["Einstufung (EU) 2023/1230",h.classification],["Anhang I höheres Risiko",h.annexI],["Ersteller",h.assessor],["Datum",h.date],["Revision",h.revision]
+  ].forEach(r=>rows.push(line(r)));
+  rows.push("");
+  rows.push(line(["Nr","Lebensphase","Gefährdungsfamilie","Konkrete Gefährdung","Gefährdungssituation","Auslösendes Ereignis","Möglicher Schaden","Betroffene Personen",
+    "S","E","W","V","Index vorher","Risikoklasse vorher","PLr/SIL",
+    "Maßnahme 1 Konstruktion","Maßnahme 2 Technisch","Maßnahme 3 Information",
+    "S nach","E nach","W nach","V nach","Index nachher","Risikoklasse nachher",
+    "Restrisiko","Begründung Restrisiko","Normbezüge","Prüfhinweise"]));
+  M.rows.forEach((r,i)=>{
+    const ib=effIndexBefore(r), ia=effIndexAfter(r);
+    const resMap={akzeptabel:"akzeptabel",bedingt:"bedingt akzeptabel",nicht:"nicht akzeptabel"};
+    rows.push(line([i+1,r.lifecycle,r.family,r.hazard,r.situation,r.event,r.harm,r.persons,
+      r.S||"",r.E||"",r.W||"",r.V||"",ib==null?"":ib,riskClass(ib).label,effPLr(r),
+      r.m1,r.m2,r.m3,
+      r.S2||"",r.E2||"",r.W2||"",r.V2||"",ia==null?"":ia,riskClass(ia).label,
+      resMap[r.residual]||"",r.residualWhy,r.norms,r.verify]));
+  });
+  rows.push("");
+  rows.push(line(["Restrisiko-Zusammenfassung",M.summary.residualSummary||""]));
+  rows.push(line(["Offene Punkte",M.summary.openPoints||""]));
+  const blob=new Blob(["\ufeff"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  download(blob,(sanitize(h.machineName||"Risikobeurteilung"))+"_Risikobeurteilung.csv");
+}
+function exportJSON(){ const blob=new Blob([JSON.stringify(M,null,2)],{type:"application/json"}); download(blob,sanitize(M.header.machineName||"maschine")+".json"); }
+function importJSON(){ document.getElementById("importText").value=""; document.getElementById("importErr").textContent=""; document.getElementById("importModal").classList.add("on"); }
+async function doImport(){
+  const err=document.getElementById("importErr");
+  try{
+    const obj=JSON.parse(document.getElementById("importText").value);
+    await importMachineObject(obj);
+    closeModal("importModal"); renderAll();
+  }catch(e){ err.textContent="Ungültiges JSON: "+e.message; }
+}
+function download(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},100); }
+function sanitize(s){ return (s||"").replace(/[^\wäöüÄÖÜß\- ]/g,"").trim().replace(/\s+/g,"_")||"export"; }
+
+/* ============================ Print / deliverable ============================ */
+function openPrint(){
+  const h=M.header;
+  const rowsHtml=M.rows.map((r,i)=>{
+    const ib=effIndexBefore(r),ia=effIndexAfter(r),cb=riskClass(ib),ca=riskClass(ia);
+    const colr={low:"#2F7A56",mid:"#9A6B10",high:"#B4551C",crit:"#A82E27",na:"#9AA3AD"};
+    const resMap={akzeptabel:["akzeptabel","#2F7A56"],bedingt:["bedingt akzept.","#9A6B10"],nicht:["nicht akzept.","#A82E27"]};
+    const res=resMap[r.residual]||["—","#9AA3AD"];
+    const meas=[r.m1&&("① "+r.m1),r.m2&&("② "+r.m2),r.m3&&("③ "+r.m3)].filter(Boolean).join("<br>");
+    return `<tr>
+      <td class="c">${i+1}</td>
+      <td>${esc(r.lifecycle)}<div class="fam">${esc(r.family)}</div></td>
+      <td><b>${esc(r.hazard)}</b><div class="mut">${esc(r.situation)}</div></td>
+      <td>${esc(r.event)}</td>
+      <td>${esc(r.harm)}<div class="mut">${esc(r.persons)}</div></td>
+      <td class="c">${ib==null?"—":`<span class="pill" style="color:${colr[cb.key]};border-color:${colr[cb.key]}">${ib} · ${cb.label}</span>`}${effPLr(r)?`<div class="mut">PLr ${effPLr(r)}</div>`:""}</td>
+      <td>${meas||"<span class='mut'>—</span>"}</td>
+      <td class="c">${ia==null?"—":`<span class="pill" style="color:${colr[ca.key]};border-color:${colr[ca.key]}">${ia} · ${ca.label}</span>`}</td>
+      <td class="c"><span style="color:${res[1]};font-weight:600">${res[0]}</span><div class="mut">${esc(r.residualWhy)}</div></td>
+      <td>${esc(r.norms)}<div class="mut">${esc(r.verify)}</div></td>
+    </tr>`;
+  }).join("");
+  const root=document.getElementById("printRoot");
+  root.innerHTML=`
+  <style>
+    #printRoot{font-family:var(--ui);color:#161A1D;font-size:9px}
+    #printRoot .doc-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #161A1D;padding-bottom:8px;margin-bottom:10px}
+    #printRoot .brandline{font-weight:800;font-size:15px;letter-spacing:-.01em}
+    #printRoot .brandline .mk{background:#E8A33D;color:#101418;padding:1px 6px;border-radius:4px;margin-right:6px}
+    #printRoot .brandline small{display:block;font-weight:500;color:#5B646C;font-size:9px;letter-spacing:.1em;text-transform:uppercase;margin-top:3px}
+    #printRoot .status{border:1px solid #E8A33D;background:#FDF6EA;color:#7A5410;border-radius:6px;padding:5px 9px;font-size:9px;font-weight:700;text-align:right}
+    #printRoot .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:3px 16px;font-size:9px;margin-bottom:10px}
+    #printRoot .meta div span{color:#5B646C}
+    #printRoot .meta .full{grid-column:1/-1}
+    #printRoot table{width:100%;border-collapse:collapse;font-size:8.3px}
+    #printRoot th{background:#20262B;color:#fff;text-align:left;padding:4px 5px;font-size:7.6px;text-transform:uppercase;letter-spacing:.04em}
+    #printRoot td{border:1px solid #D9DBD6;padding:4px 5px;vertical-align:top}
+    #printRoot td.c{text-align:center}
+    #printRoot .fam{color:#5B646C;font-size:7.6px}
+    #printRoot .mut{color:#5B646C;font-size:7.6px;margin-top:2px}
+    #printRoot .pill{border:1px solid;border-radius:4px;padding:1px 5px;font-weight:700;white-space:nowrap;font-size:8px}
+    #printRoot .sum{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    #printRoot .sum .box{border:1px solid #D9DBD6;border-radius:6px;padding:8px}
+    #printRoot .sum h4{margin:0 0 4px;font-size:9px}
+    #printRoot .disc{margin-top:10px;border-left:3px solid #E8A33D;background:#FDF6EA;color:#7A5410;padding:6px 9px;font-size:7.8px;border-radius:0 5px 5px 0}
+    #printRoot .foot{margin-top:8px;font-size:7.5px;color:#9AA3AD;display:flex;justify-content:space-between;border-top:1px solid #D9DBD6;padding-top:5px}
+  </style>
+  <div class="doc-head">
+    <div class="brandline"><span class="mk">S</span>SIFo Medical<small>Risikobeurteilung · EN ISO 12100 · Verordnung (EU) 2023/1230</small></div>
+    <div class="status">ENTWURF<br>Expertenprüfung erforderlich</div>
+  </div>
+  <div class="meta">
+    <div><span>Unternehmen:</span> ${esc(h.company)}</div>
+    <div><span>Maschine:</span> ${esc(h.machineName)}</div>
+    <div><span>Typ:</span> ${esc(h.machineType)}</div>
+    <div><span>Doku-Nr.:</span> ${esc(h.drawingNo)}</div>
+    <div><span>Ersteller:</span> ${esc(h.assessor)}</div>
+    <div><span>Datum / Rev.:</span> ${esc(h.date)} / ${esc(h.revision)}</div>
+    <div class="full"><span>Bestimmungsgemäße Verwendung:</span> ${esc(h.intendedUse)}</div>
+    <div class="full"><span>Vorhersehbare Fehlanwendung:</span> ${esc(h.misuse)}</div>
+    <div><span>Bedienpersonal:</span> ${esc(h.operators)}</div>
+    <div><span>Einstufung:</span> ${esc(h.classification)}</div>
+    <div><span>Anhang I:</span> ${esc(h.annexI)}</div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>#</th><th>Phase / Familie</th><th>Gefährdung &amp; Situation</th><th>Ereignis</th><th>Schaden / Personen</th>
+      <th>Risiko vorher</th><th>Maßnahmen (3 Stufen)</th><th>Risiko nachher</th><th>Restrisiko</th><th>Normen / Prüfung</th>
+    </tr></thead>
+    <tbody>${rowsHtml||`<tr><td colspan="10" style="text-align:center;color:#9AA3AD;padding:14px">Keine Gefährdungen erfasst.</td></tr>`}</tbody>
+  </table>
+  <div class="sum">
+    <div class="box"><h4>Restrisiko-Zusammenfassung</h4>${esc(M.summary.residualSummary)||"<span style='color:#9AA3AD'>—</span>"}</div>
+    <div class="box"><h4>Offene Punkte</h4>${esc(M.summary.openPoints)||"<span style='color:#9AA3AD'>—</span>"}</div>
+  </div>
+  <div class="disc"><b>Scope-Hinweis.</b> Dokumentierte Risikobeurteilung als Entwurf; erfüllt den Risikobeurteilungs-Baustein der Verordnung (EU) 2023/1230. Kein Ersatz für die fachkundige Freigabe, das Konformitätsbewertungsverfahren, die technische Dokumentation, die EU-Konformitätserklärung, die Betriebsanleitung oder die CE-Kennzeichnung. Index nach S×(E+W+V) als Priorisierungsvorschlag; validierte Bewertung durch den Experten. Normstellen am amtlichen Verordnungstext prüfen.</div>
+  <div class="foot"><span>SIFo Medical · SIFo GmbH · Telfs, Österreich</span><span>Erstellt ${timeStr(Date.now())}</span></div>`;
+  window.print();
+}
+function esc(s){ return escapeHtml(s||"").replace(/\n/g,"<br>"); }
+function escapeHtml(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+/* family quick add */
+function buildFamilyQuick(){ document.getElementById("famQuick").innerHTML=`<option value="">Schnell nach Familie…</option>`+FAMILIES.map(f=>`<option value="${f}">${f}</option>`).join(""); }
+
+/* close modals on backdrop */
+document.querySelectorAll(".modal").forEach(m=>m.addEventListener("mousedown",e=>{ if(e.target===m) m.classList.remove("on"); }));
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.querySelectorAll(".modal.on").forEach(m=>m.classList.remove("on")); });
+
+boot();
+</script>
+</body>
+</html>

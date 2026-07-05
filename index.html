@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maschinen-Risikokatalog · Verordnung (EU) 2023/1230 · SIFo Medical</title>
+<style>
+  :root{
+    --ink:#161A1D; --sub:#5B646C; --mute:#9AA3AD;
+    --paper:#F7F7F3; --card:#FFFFFF; --line:#E4E6E2;
+    --signal:#E8A33D; --signal-ink:#7A5410;
+    --closed:#EEF0ED; --ok:#3E7C5A; --ok-bg:#EAF4EE;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    line-height:1.45; padding-bottom:120px;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:0 18px}
+  header{
+    position:sticky;top:0;z-index:20;background:rgba(247,247,243,.92);
+    backdrop-filter:saturate(140%) blur(8px);border-bottom:1px solid var(--line);
+  }
+  header .wrap{padding-top:14px;padding-bottom:12px}
+  .kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--signal-ink);font-weight:700}
+  h1{font-size:19px;margin:4px 0 0;font-weight:650;letter-spacing:-.01em}
+  h1 span{color:var(--mute);font-weight:500}
+  .bar{height:4px;background:var(--closed);border-radius:99px;margin-top:12px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:var(--signal);transition:width .35s ease}
+  .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-top:7px}
+
+  main .wrap{padding-top:20px}
+  .block{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:18px 18px 6px;margin-bottom:14px;
+  }
+  .block.closed{background:var(--closed);border-style:dashed;opacity:.72}
+  .block.answered-yes{border-color:var(--signal)}
+  .bhead{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+  .num{font-size:12px;font-weight:700;color:var(--mute);min-width:26px}
+  .btitle{font-size:15px;font-weight:650;letter-spacing:-.01em}
+  .bnote{font-size:12.5px;color:var(--sub);margin:2px 0 12px 36px}
+  .q{margin:0 0 14px 36px}
+  .q:last-child{margin-bottom:16px}
+  .label{font-size:14px;font-weight:550;margin-bottom:8px;display:block}
+  .req{color:var(--signal-ink)}
+
+  input[type=text]{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;
+    font:inherit;font-size:14px;background:#fff;color:var(--ink)
+  }
+  input[type=text]:focus{outline:2px solid var(--signal);outline-offset:1px;border-color:var(--signal)}
+
+  .opts{display:flex;flex-wrap:wrap;gap:8px}
+  .opts.stack{flex-direction:column}
+  .opt{
+    display:flex;align-items:center;gap:9px;cursor:pointer;
+    border:1px solid var(--line);border-radius:9px;padding:9px 12px;
+    font-size:13.5px;background:#fff;transition:.12s;user-select:none;flex:0 0 auto
+  }
+  .opts.stack .opt{width:100%}
+  .opt:hover{border-color:var(--mute)}
+  .opt input{accent-color:var(--signal);width:16px;height:16px;margin:0}
+  .opt.sel{border-color:var(--signal);background:#FDF6EA}
+  .yn .opt{min-width:96px;justify-content:flex-start}
+
+  .reveal{display:none;border-left:2px solid var(--signal);margin-left:36px;padding-left:14px}
+  .reveal.on{display:block;animation:fade .25s ease}
+  .reveal .q{margin-left:0}
+  @keyframes fade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+
+  .closedmsg{font-size:12.5px;color:var(--mute);margin:0 0 12px 36px;font-style:italic}
+
+  footer{
+    position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.94);
+    backdrop-filter:blur(8px);border-top:1px solid var(--line);z-index:20
+  }
+  footer .wrap{display:flex;gap:10px;padding:12px 18px}
+  button{
+    font:inherit;font-weight:600;border-radius:10px;padding:12px 16px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);cursor:pointer;flex:1
+  }
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.primary:hover{background:#000}
+  button.go{background:var(--signal);color:#101418;border-color:var(--signal)}
+  button.go:hover{background:#f0b255}
+  button.ghost{flex:0 0 auto}
+
+  .summary{background:#101418;color:#E7EAE6;border-radius:14px;padding:18px;margin-top:8px;display:none}
+  .summary.on{display:block}
+  .summary h2{font-size:15px;margin:0 0 4px}
+  .summary p.hint{font-size:12.5px;color:#9AA3AD;margin:0 0 14px}
+  .srow{border-top:1px solid #262C31;padding:10px 0;font-size:13px}
+  .srow .k{color:#9AA3AD;font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+  .srow .v{margin-top:2px}
+  .tag{display:inline-block;background:#1C2226;border:1px solid #2C343A;border-radius:6px;padding:2px 8px;margin:3px 4px 0 0;font-size:12px}
+  .tag.no{color:#7C858C}
+  pre{white-space:pre-wrap;word-break:break-word;font-size:11.5px;color:#8B949B;background:#0B0E11;border-radius:8px;padding:12px;margin-top:12px;max-height:260px;overflow:auto}
+
+  #toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:#101418;color:#fff;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:600;z-index:40;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="kicker">SIFo Medical · Schritt 1 von 2 · Eingang</div>
+    <h1>Maschinen-Risikokatalog <span>· Verordnung (EU) 2023/1230</span></h1>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="meta"><span id="progtxt">0 % ausgefüllt</span><span id="gatestxt"></span></div>
+  </div>
+</header>
+
+<main><div class="wrap" id="form"></div></main>
+
+<footer><div class="wrap">
+  <button class="ghost" onclick="resetAll()">Zurücksetzen</button>
+  <button onclick="finish()">Zusammenfassung</button>
+  <button class="go" onclick="toRiskTool()">Zur Risikobeurteilung →</button>
+</div></footer>
+
+<div id="toast"></div>
+
+<script>
+/* ---- Katalog-Definition, spiegelt das YAML ---- */
+const YN = [["Ja","yes"],["Nein","no"]];
+const catalog = [
+ {n:"00", title:"Allgemeine Angaben", type:"static", fields:[
+   {id:"g_company", q:"Unternehmen", kind:"text", req:true},
+   {id:"g_contact", q:"Ansprechpartner", kind:"text", req:true},
+   {id:"g_machine", q:"Maschinenbezeichnung / Typ", kind:"text", req:true},
+   {id:"g_email",   q:"E-Mail", kind:"text", req:true},
+ ]},
+ {n:"01", title:"Maschinen-Steckbrief", type:"static", fields:[
+   {id:"p_use",   q:"Bestimmungsgemäße Verwendung (1–2 Sätze)", kind:"text", req:true},
+   {id:"p_mis",   q:"Vernünftigerweise vorhersehbare Fehlanwendung (1–2 Sätze)", kind:"text", req:true},
+   {id:"p_oper",  q:"Bedienpersonal", kind:"single", opts:[["Qualifiziert","qualified"],["Unterwiesen","instructed"],["Laie","layperson"]]},
+   {id:"p_phase", q:"Relevante Lebensphasen", kind:"multi", opts:[["Transport","transport"],["Montage/Installation","installation"],["Inbetriebnahme","commissioning"],["Normalbetrieb","operation"],["Rüsten","setup"],["Reinigung","cleaning"],["Wartung","maintenance"],["Störungsbehebung","troubleshooting"],["Demontage/Entsorgung","decommissioning"]]},
+   {id:"p_group", q:"Exponierte Personengruppen", kind:"multi", opts:[["Bediener","operator"],["Einrichter","setter"],["Instandhalter","maintainer"],["Reiniger","cleaner"],["Umstehende","bystander"],["Ungeschulte Dritte","untrained_third"]]},
+ ]},
+ {n:"02", title:"Einstufung nach 2023/1230", type:"static", fields:[
+   {id:"s_machine", q:"Maschine oder Produkt im Sinne der Verordnung (EU) 2023/1230?", kind:"single", opts:YN, req:true},
+   {id:"s_partly",  q:"Unvollständige Maschine (nur zum Einbau bestimmt)?", kind:"single", opts:YN, req:true,
+     note:"Hinweis bei Ja: Sonderpfad Einbauerklärung, keine CE als vollständige Maschine.", noteOn:"yes"},
+   {id:"s_annex",   q:"Fällt die Maschine in eine Kategorie des Anhangs I (höheres Risiko)?", kind:"single", opts:[["Ja","yes"],["Nein","no"],["Unklar","unknown"]], req:true},
+   {id:"s_elec",    q:"Elektrische Ausrüstung vorhanden?", kind:"single", opts:YN, req:true},
+   {id:"s_emc",     q:"Elektronik/Signalverarbeitung vorhanden (EMV relevant)?", kind:"single", opts:YN, req:true},
+   {id:"s_atex",    q:"Einsatz in explosionsgefährdeter Atmosphäre möglich (ATEX)?", kind:"single", opts:YN, req:true},
+ ]},
+
+ {n:"03", title:"Mechanische Gefährdungen", type:"gate", gate:{id:"mech_gate", q:"Gibt es bewegte Teile oder Energie, die verletzen können?"}, sub:[
+   {id:"mech_types", q:"Welche mechanischen Gefährdungen liegen vor?", kind:"multi", opts:[["Quetschen","crushing"],["Scheren","shearing"],["Schneiden/Abtrennen","cutting"],["Einziehen/Fangen","entanglement"],["Stoß","impact"],["Stich/Durchstich","stabbing"],["Reibung/Abrieb","friction"],["Hochdruck-Fluid","fluid_injection"],["Teileauswurf","ejection"],["Kippen/Standsicherheit","loss_of_stability"]]},
+   {id:"mech_access", q:"Sind Gefahrstellen frei zugänglich?", kind:"single", opts:YN},
+   {id:"mech_note", q:"Anmerkung (optional)", kind:"text"},
+ ]},
+ {n:"04", title:"Elektrische Gefährdungen", type:"gate",
+   dep:{id:"s_elec", val:"yes", msg:"Übersprungen, da im Einstufungsblock keine elektrische Ausrüstung angegeben wurde."},
+   note:"Über die Maschinenverordnung selbst abgedeckt (Schutzziele Niederspannungsrichtlinie), maßgeblich EN 60204-1.",
+   gate:{id:"elec_gate", q:"Liegen elektrische Gefährdungen vor?"}, sub:[
+   {id:"elec_types", q:"Welche elektrischen Gefährdungen?", kind:"multi", opts:[["Direktes Berühren","direct_contact"],["Indirektes Berühren","indirect_contact"],["Lichtbogen/Kurzschluss","arc_short"],["Statische Aufladung","electrostatic"],["Überlast/thermisch","overload"]]},
+   {id:"elec_note", q:"Anmerkung (optional)", kind:"text"},
+ ]},
+ {n:"05", title:"Thermische Gefährdungen", type:"gate", gate:{id:"therm_gate", q:"Heiße/kalte Oberflächen über Grenzwert (EN ISO 13732) oder Flammen?"}, sub:[
+   {id:"therm_types", q:"Welche thermischen Gefährdungen?", kind:"multi", opts:[["Heiße Oberflächen","hot"],["Kalte Oberflächen","cold"],["Flammen/Funken","flames"],["Strahlungswärme","radiant"]]},
+ ]},
+ {n:"06", title:"Lärm", type:"gate", gate:{id:"noise_gate", q:"Kann der Schallpegel am Arbeitsplatz 70 dB(A) überschreiten?"}, sub:[
+   {id:"noise_type", q:"Art der Belastung", kind:"multi", opts:[["Dauerschallpegel","continuous"],["Spitzenpegel/Impuls","impulsive"]]},
+   {id:"noise_meas", q:"Liegt eine Lärmmessung vor?", kind:"single", opts:YN},
+ ]},
+ {n:"07", title:"Vibration", type:"gate", gate:{id:"vib_gate", q:"Überträgt die Maschine Schwingungen auf den Menschen?"}, sub:[
+   {id:"vib_type", q:"Art der Schwingung", kind:"multi", opts:[["Hand-Arm-Vibration","hand_arm"],["Ganzkörper-Vibration","whole_body"]]},
+ ]},
+ {n:"08", title:"Strahlung", type:"gate", gate:{id:"rad_gate", q:"Emittiert die Maschine Strahlung?"}, sub:[
+   {id:"rad_type", q:"Welche Strahlungsart?", kind:"multi", opts:[["Laser","laser"],["UV","uv"],["IR","ir"],["HF/Mikrowelle","rf"],["Elektromagnet. Felder","emf"],["Ionisierend","ionizing"]]},
+   {id:"rad_note", q:"Anmerkung (optional)", kind:"text"},
+ ]},
+ {n:"09", title:"Werkstoffe und Stoffe", type:"gate", gate:{id:"subst_gate", q:"Werden Stoffe verarbeitet, verwendet oder freigesetzt?"}, sub:[
+   {id:"subst_type", q:"Welche Gefährdung?", kind:"multi", opts:[["Gefahrstoffe","hazardous"],["Stäube","dust"],["Gase/Dämpfe","gases"],["Brand","fire"],["Explosion","explosion"],["Biologisch","biological"]]},
+   {id:"subst_note", q:"Anmerkung (optional)", kind:"text"},
+ ]},
+ {n:"10", title:"Ergonomische Gefährdungen", type:"gate", gate:{id:"ergo_gate", q:"Gibt es manuelle Tätigkeiten oder Belastungen am Arbeitsplatz?"}, sub:[
+   {id:"ergo_type", q:"Welche Belastung?", kind:"multi", opts:[["Zwangshaltung","posture"],["Kraftaufwand","exertion"],["Wiederholung","repetition"],["Beleuchtung","lighting"],["Mentale Belastung","mental"]]},
+ ]},
+ {n:"11", title:"Betriebsumgebung", type:"gate", gate:{id:"env_gate", q:"Ergeben sich Gefährdungen aus der Umgebung?"}, sub:[
+   {id:"env_type", q:"Welche?", kind:"multi", opts:[["Rutschen/Stolpern/Stürzen","slip_trip"],["Absturz aus Höhe","fall_height"],["Umgebungsbeleuchtung","ambient"],["Witterung/Außen","weather"]]},
+ ]},
+ {n:"12", title:"Steuerung und funktionale Sicherheit", type:"gate", gate:{id:"ctrl_gate", q:"Gibt es sicherheitsrelevante Steuerungsfunktionen?"}, sub:[
+   {id:"ctrl_type", q:"Welche Sicherheitsfunktionen?", kind:"multi", opts:[["Not-Halt","estop"],["Schutztürüberwachung","interlock"],["Zweihandschaltung","two_hand"],["Lichtvorhang (ESPE)","espe"],["Zustimmtaster","enabling"],["Stillstandsüberwachung","standstill"]]},
+   {id:"ctrl_pl", q:"Performance Level (PL) oder SIL bereits festgelegt?", kind:"single", opts:YN},
+   {id:"ctrl_plval", q:"Falls ja: welcher PL/SIL je Funktion?", kind:"text", showIf:{id:"ctrl_pl", val:"yes"}},
+ ]},
+ {n:"13", title:"Schutz gegen Korrumpierung / Cybersecurity", type:"gate", badge:"neu",
+   note:"Neu in 2023/1230: Sicherheitsfunktionen müssen gegen zufällige oder absichtliche Korrumpierung geschützt sein.",
+   gate:{id:"cyber_gate", q:"Ist die Maschine vernetzt, fernwartbar oder softwareseitig aktualisierbar?"}, sub:[
+   {id:"cyber_type", q:"Welche Angriffs-/Korrumpierungspfade?", kind:"multi", opts:[["Netzwerk/Internet","network"],["Fernzugriff/Fernwartung","remote"],["Software-/Firmware-Update","update"],["Wechselmedien (USB)","media"],["Manipulation Sicherheitsfunktion","corruption"],["Integrität Logdaten","integrity"]]},
+   {id:"cyber_note", q:"Anmerkung (optional)", kind:"text"},
+ ]},
+ {n:"14", title:"Autonomes oder sich entwickelndes Verhalten", type:"gate", badge:"neu",
+   note:"Neu in 2023/1230: für Maschinen mit selbstentwickelndem Verhalten oder KI-basierter Logik mit Sicherheitsfunktion.",
+   gate:{id:"auto_gate", q:"Zeigt die Maschine autonomes oder sich selbst entwickelndes Verhalten (KI/ML)?"}, sub:[
+   {id:"auto_type", q:"Welche Aspekte treffen zu?", kind:"multi", opts:[["Sich entwickelndes Verhalten (ML)","evolving"],["Autonome Bewegung ohne Bediener","autonomous"],["Kollaborativer Betrieb","collaborative"],["Sicherheitsentscheidungen durch Software","decisions"]]},
+   {id:"auto_note", q:"Anmerkung (optional)", kind:"text"},
+ ]},
+ {n:"15", title:"Bereits umgesetzte Schutzmaßnahmen", type:"static", fields:[
+   {id:"m_done", q:"Welche Maßnahmen sind bereits umgesetzt?", kind:"multi", opts:[["Inhärent sichere Konstruktion","inherent"],["Trennende Schutzeinrichtungen","guards"],["Sicherheitsabstände (13857)","distances"],["Not-Halt (13850)","estop"],["Restrisiken in der Anleitung","manual"],["Warnpiktogramme","signs"]]},
+   {id:"m_note", q:"Weitere Anmerkungen zur Risikobeurteilung (optional)", kind:"text"},
+ ]},
+];
+
+/* ---- Mapping Katalog-Block -> Gefährdungsfamilie im Tool ---- */
+const FAMILY_BY_BLOCK={ "03":"Mechanisch","04":"Elektrisch","05":"Thermisch","06":"Lärm","07":"Vibration","08":"Strahlung","09":"Werkstoffe/Stoffe","10":"Ergonomie","11":"Betriebsumgebung","12":"Steuerung/funkt. Sicherheit","13":"Cybersecurity/Korrumpierung","14":"Autonomes Verhalten (KI/ML)" };
+const NORM_HINT={ mech_types:"EN ISO 13857 / EN ISO 13854", elec_types:"EN 60204-1", therm_types:"EN ISO 13732", noise_type:"EN ISO 11688", vib_type:"EN ISO 20643", ctrl_type:"EN ISO 13849-1 / IEC 62061", subst_type:"EN ISO 19353 (Brand)" };
+
+/* ---- State ---- */
+const state = {};
+const form = document.getElementById("form");
+
+function optRow(fid, opt, multi){
+  const [lab,val]=opt;
+  const type=multi?"checkbox":"radio";
+  return `<label class="opt" data-fid="${fid}" data-val="${val}">
+     <input type="${type}" name="${fid}" value="${val}"
+       onchange="pick('${fid}','${val}',${multi})"> <span>${lab}</span></label>`;
+}
+function fieldHTML(f){
+  let inner="";
+  if(f.kind==="text"){
+    inner=`<input type="text" id="in_${f.id}" oninput="setText('${f.id}',this.value)" placeholder="…">`;
+  }else{
+    const multi=f.kind==="multi";
+    const cls = (f.opts.length<=3 && !multi) ? "opts yn" : (multi?"opts stack":"opts");
+    inner=`<div class="${cls}">${f.opts.map(o=>optRow(f.id,o,multi)).join("")}</div>`;
+  }
+  const showIf = f.showIf ? ` data-showif="${f.showIf.id}" data-showval="${f.showIf.val}" style="display:none"`:"";
+  const req = f.req ? ' <span class="req">*</span>':"";
+  return `<div class="q" id="q_${f.id}"${showIf}>
+      <label class="label">${f.q}${req}</label>${inner}
+      ${f.note?`<div class="closedmsg" id="note_${f.id}" style="display:none">${f.note}</div>`:""}
+    </div>`;
+}
+function render(){
+  form.innerHTML = catalog.map(b=>{
+    const badge = b.badge?` <span class="tag" style="background:#FDF6EA;color:var(--signal-ink);border-color:var(--signal)">neu · 2023/1230</span>`:"";
+    let body="";
+    if(b.type==="static"){
+      body=b.fields.map(fieldHTML).join("");
+    }else{
+      const g=b.gate;
+      body=`<div class="q" id="q_${g.id}">
+              <label class="label">${g.q} <span class="req">*</span></label>
+              <div class="opts yn">${YN.map(o=>optRow(g.id,o,false)).join("")}</div>
+            </div>
+            <div class="reveal" id="rev_${b.n}">${b.sub.map(fieldHTML).join("")}</div>`;
+    }
+    return `<section class="block" id="blk_${b.n}" data-type="${b.type}">
+      <div class="bhead"><span class="num">${b.n}</span><span class="btitle">${b.title}${badge}</span></div>
+      ${b.note?`<div class="bnote">${b.note}</div>`:""}
+      ${b.type==="gate"?"":`<div style="height:2px"></div>`}
+      ${body}
+    </section>`;
+  }).join("") + `<div class="summary" id="sum"></div>`;
+}
+render();
+
+function markSel(fid){
+  document.querySelectorAll(`.opt[data-fid="${fid}"]`).forEach(o=>{
+    const inp=o.querySelector("input");
+    o.classList.toggle("sel", inp.checked);
+  });
+}
+function pick(fid,val,multi){
+  if(multi){
+    const cur = new Set(state[fid]||[]);
+    cur.has(val)?cur.delete(val):cur.add(val);
+    state[fid]=[...cur];
+  }else{
+    state[fid]=val;
+    handleGate(fid,val);
+    handleShowIf(fid,val);
+    handleNote(fid,val);
+    handleDep();
+  }
+  markSel(fid);
+  updateProgress();
+}
+function setText(id,v){ state[id]=v.trim(); updateProgress(); }
+
+function handleGate(fid,val){
+  const blk = catalog.find(b=>b.type==="gate" && b.gate.id===fid);
+  if(!blk) return;
+  const rev=document.getElementById("rev_"+blk.n);
+  const section=document.getElementById("blk_"+blk.n);
+  if(val==="yes"){
+    rev.classList.add("on");
+    section.classList.add("answered-yes");
+    section.classList.remove("closed");
+  }else{
+    rev.classList.remove("on");
+    section.classList.remove("answered-yes");
+    blk.sub.forEach(f=>{ delete state[f.id]; clearField(f.id); });
+  }
+}
+function handleShowIf(fid,val){
+  document.querySelectorAll(`[data-showif="${fid}"]`).forEach(q=>{
+    const want=q.getAttribute("data-showval");
+    if(val===want){ q.style.display="block"; }
+    else{ q.style.display="none"; clearField(q.id.replace("q_","")); delete state[q.id.replace("q_","")]; }
+  });
+}
+function handleNote(fid,val){
+  const note=document.getElementById("note_"+fid);
+  const f = catalog.flatMap(b=>b.fields||[]).find(x=>x&&x.id===fid);
+  if(note && f && f.noteOn){ note.style.display = (val===f.noteOn)?"block":"none"; }
+}
+function handleDep(){
+  catalog.filter(b=>b.dep).forEach(b=>{
+    const ok = state[b.dep.id]===b.dep.val;
+    const section=document.getElementById("blk_"+b.n);
+    const gateQ=document.getElementById("q_"+b.gate.id);
+    let dm=document.getElementById("dep_"+b.n);
+    if(!ok){
+      section.classList.add("closed");
+      gateQ.style.display="none";
+      document.getElementById("rev_"+b.n).classList.remove("on");
+      if(!dm){ dm=document.createElement("div"); dm.className="closedmsg"; dm.id="dep_"+b.n; dm.textContent=b.dep.msg; section.appendChild(dm);}
+      dm.style.display="block";
+      delete state[b.gate.id]; b.sub.forEach(f=>{delete state[f.id];clearField(f.id);}); clearField(b.gate.id);
+    }else{
+      section.classList.remove("closed");
+      gateQ.style.display="block";
+      if(dm) dm.style.display="none";
+    }
+  });
+}
+function clearField(id){
+  document.querySelectorAll(`input[name="${id}"]`).forEach(i=>i.checked=false);
+  const t=document.getElementById("in_"+id); if(t) t.value="";
+  markSel(id);
+}
+
+/* ---- Progress ---- */
+function activeFieldIds(){
+  const ids=[];
+  catalog.forEach(b=>{
+    if(b.dep && state[b.dep.id]!==b.dep.val) return;
+    if(b.type==="static"){ b.fields.forEach(f=>{ if(f.req) ids.push(f.id); }); }
+    else{ ids.push(b.gate.id); }
+  });
+  return ids;
+}
+function updateProgress(){
+  const need=activeFieldIds();
+  const done=need.filter(id=>{
+    const v=state[id]; return v!==undefined && v!=="" && !(Array.isArray(v)&&v.length===0);
+  }).length;
+  const pct = need.length? Math.round(done/need.length*100):0;
+  document.getElementById("prog").style.width=pct+"%";
+  document.getElementById("progtxt").textContent=pct+" % ausgefüllt";
+  const openGates=catalog.filter(b=>b.type==="gate"&&state[b.gate.id]==="yes").length;
+  const closed=catalog.filter(b=>b.type==="gate"&&state[b.gate.id]==="no").length;
+  document.getElementById("gatestxt").textContent=`${openGates} offen · ${closed} geschlossen`;
+}
+updateProgress();
+
+/* ---- Label-Helfer ---- */
+function optLabel(fid,val){
+  for(const b of catalog){
+    const pool=[...(b.fields||[]),...(b.sub||[]),...(b.gate?[{id:b.gate.id,opts:YN}]:[])];
+    const f=pool.find(x=>x.id===fid);
+    if(f&&f.opts){ const m=f.opts.find(o=>o[1]===val); if(m) return m[0]; }
+  }
+  return val;
+}
+function labelsFor(fid){
+  const arr=state[fid]; if(!Array.isArray(arr)) return [];
+  return arr.map(v=>optLabel(fid,v));
+}
+
+/* ---- Summary (optional Vorschau) ---- */
+function finish(){
+  const rows=[];
+  catalog.forEach(b=>{
+    if(b.dep && state[b.dep.id]!==b.dep.val){
+      rows.push(`<div class="srow"><div class="k">${b.n} · ${b.title}</div><div class="v"><span class="tag no">übersprungen</span></div></div>`);
+      return;
+    }
+    let vals=[];
+    const pool = b.type==="gate" ? [{id:b.gate.id,q:"Gate"}, ...b.sub] : b.fields;
+    pool.forEach(f=>{
+      const v=state[f.id]; if(v===undefined||v===""||(Array.isArray(v)&&!v.length)) return;
+      if(Array.isArray(v)) vals.push(`<div style="margin-top:6px"><b style="font-size:12px">${f.q}</b><br>${v.map(x=>`<span class="tag">${optLabel(f.id,x)}</span>`).join("")}</div>`);
+      else if(f.opts) vals.push(`<div style="margin-top:6px"><b style="font-size:12px">${f.q}:</b> ${optLabel(f.id,v)}</div>`);
+      else vals.push(`<div style="margin-top:6px"><b style="font-size:12px">${f.q}:</b> ${v}</div>`);
+    });
+    if(b.type==="gate" && state[b.gate.id]==="no"){
+      rows.push(`<div class="srow"><div class="k">${b.n} · ${b.title}</div><div class="v"><span class="tag no">Nein · Block geschlossen</span></div></div>`);
+    }else if(vals.length){
+      rows.push(`<div class="srow"><div class="k">${b.n} · ${b.title}</div><div class="v">${vals.join("")}</div></div>`);
+    }
+  });
+  const m=buildMachine();
+  const sum=document.getElementById("sum");
+  sum.innerHTML=`<h2>Übergabe an die Risikobeurteilung</h2>
+    <p class="hint">Aus dem Katalog werden Maschinensteckbrief und ${m.rows.length} Gefährdungszeilen als Entwurf erzeugt. Risikoschätzung (S/E/W/V), Maßnahmen und Restrisiko-Urteil werden in der Risikobeurteilung ergänzt und vom Experten freigegeben.</p>
+    ${rows.join("")}
+    <pre>${JSON.stringify(m,null,2)}</pre>`;
+  sum.classList.add("on");
+  sum.scrollIntoView({behavior:"smooth"});
+}
+function resetAll(){
+  for(const k in state) delete state[k];
+  render(); updateProgress();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* ---- Mapping: Katalog-State -> Maschinen-Datensatz des Tools ---- */
+function buildMachine(){
+  const s=state;
+  const opMap={qualified:"Qualifiziert",instructed:"Unterwiesen",layperson:"Laie"};
+  const annexMap={yes:"Ja",no:"Nein",unknown:"Unklar"};
+  const persons=labelsFor("p_group").join(", ");
+
+  const clsBits=[];
+  if(s.s_machine) clsBits.push("Maschine i.S.d. (EU) 2023/1230: "+(s.s_machine==="yes"?"ja":"nein"));
+  if(s.s_partly==="yes") clsBits.push("unvollständige Maschine (Einbauerklärung)");
+  if(s.s_elec) clsBits.push("elektr. Ausrüstung: "+(s.s_elec==="yes"?"ja":"nein"));
+  if(s.s_emc==="yes") clsBits.push("EMV relevant");
+  if(s.s_atex==="yes") clsBits.push("ATEX relevant");
+
+  const header={
+    company:s.g_company||"",
+    machineName:s.g_machine||"",
+    machineType:s.g_machine||"",
+    drawingNo:"",
+    intendedUse:s.p_use||"",
+    misuse:s.p_mis||"",
+    operators:opMap[s.p_oper]||"",
+    classification:clsBits.join("; "),
+    annexI:annexMap[s.s_annex]||"",
+    assessor:"Simon Foeger",
+    date:new Date().toISOString().slice(0,10),
+    revision:"1.0"
+  };
+
+  const rows=[];
+  catalog.forEach(b=>{
+    if(b.type!=="gate") return;
+    if(s[b.gate.id]!=="yes") return;
+    const note=gateNote(b);
+    b.sub.forEach(f=>{
+      if(f.kind!=="multi") return;
+      const vals=s[f.id]; if(!Array.isArray(vals)||!vals.length) return;
+      vals.forEach(v=>{
+        rows.push({
+          family: FAMILY_BY_BLOCK[b.n]||"",
+          hazard: optLabel(f.id,v),
+          persons: persons,
+          norms: NORM_HINT[f.id]||"",
+          verify: note
+        });
+      });
+    });
+  });
+
+  const doneLabels=labelsFor("m_done");
+  const openBits=[
+    doneLabels.length?("Bereits umgesetzte Maßnahmen laut Katalog: "+doneLabels.join(", ")+"."):"",
+    s.m_note?("Anmerkung: "+s.m_note):"",
+    "Risikoschätzung (S/E/W/V), Gefährdungssituation und Maßnahmen je Zeile noch offen — durch Design-Prüfung, Workflow oder Experten zu ergänzen."
+  ].filter(Boolean);
+
+  return {
+    name: header.machineName||"Katalog-Import",
+    header, rows,
+    summary:{ residualSummary:"", openPoints:openBits.join("\n") },
+    createdAt:Date.now(), updatedAt:Date.now()
+  };
+}
+function gateNote(b){
+  const parts=[];
+  b.sub.forEach(f=>{
+    if(f.kind==="multi") return;
+    const v=state[f.id]; if(v==null||v==="") return;
+    if(f.id.endsWith("_access")) parts.push("Gefahrstellen frei zugänglich: "+(v==="yes"?"ja":"nein"));
+    else if(f.id==="noise_meas") parts.push("Lärmmessung: "+(v==="yes"?"vorhanden":"offen"));
+    else if(f.id==="ctrl_pl") parts.push("PL/SIL festgelegt: "+(v==="yes"?"ja":"nein"));
+    else if(f.id==="ctrl_plval") parts.push("PL/SIL: "+v);
+    else if(f.id.endsWith("_note")) parts.push(v);
+  });
+  return parts.join(" · ");
+}
+
+/* ---- Übergabe an die Risikobeurteilung ---- */
+function toRiskTool(){
+  const machine=buildMachine();
+  if(!machine.rows.length){
+    toast("Noch keine Gefährdung markiert — Übergabe erzeugt nur den Steckbrief.");
+  }
+  try{
+    window.localStorage.setItem("sifo_ra_handoff", JSON.stringify(machine));
+    window.location.href="risikobeurteilung.html";
+  }catch(e){
+    // Umgebung ohne localStorage (z. B. Vorschau): JSON zum manuellen Import herunterladen
+    const blob=new Blob([JSON.stringify(machine,null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=(machine.header.machineName||"katalog")+"_uebergabe.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    toast("Übergabe als JSON geladen. In der Risikobeurteilung über „Import\" öffnen.");
+  }
+}
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.style.opacity="1";
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.opacity="0",3600);
+}
+</script>
+</body>
+</html>
